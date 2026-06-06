@@ -1,40 +1,50 @@
 """
 file: chunking.py
-This module provides functionality to chunk text extracted from PDF pages.
-
-
+Paragraph-aware chunking: splits on natural paragraph breaks first, then
+word-splits only paragraphs that exceed chunk_size. Overlap is applied by
+carrying the tail of the previous chunk into the next one.
 """
 from hashlib import sha256
 
-#helper function to chunk text into smaller pieces with overlap
+
+def _word_count(text: str) -> int:
+    return len(text.split())
+
+
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 80) -> list[str]:
-    """
-    Simple word-based chunking.
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
 
-    Later you can replace this with:
-    - token-based chunking
-    - semantic chunking
-    - structure-aware chunking
-    """
+    # Split any paragraph that exceeds chunk_size into word-count sub-chunks
+    segments: list[str] = []
+    for para in paragraphs:
+        words = para.split()
+        if len(words) <= chunk_size:
+            segments.append(para)
+        else:
+            start = 0
+            while start < len(words):
+                segments.append(" ".join(words[start : start + chunk_size]))
+                start += chunk_size - overlap
 
-    words = text.split()
-    chunks = []
+    # Merge short segments up to chunk_size, then apply overlap between chunks
+    chunks: list[str] = []
+    current_words: list[str] = []
 
-    start = 0
+    for seg in segments:
+        seg_words = seg.split()
+        if current_words and _word_count(" ".join(current_words)) + len(seg_words) > chunk_size:
+            chunks.append(" ".join(current_words))
+            # carry overlap tail into next chunk
+            current_words = current_words[-overlap:] if overlap else []
+        current_words.extend(seg_words)
 
-    while start < len(words):
-        end = start + chunk_size
-        chunk = " ".join(words[start:end])
-
-        if chunk.strip():
-            chunks.append(chunk)
-
-        start += chunk_size - overlap
+    if current_words:
+        chunks.append(" ".join(current_words))
 
     return chunks
 
 
-def create_chunks(pages, chunk_size: int, overlap: int) -> list[dict[str, str | int]]:
+def create_chunks(pages: list[dict], chunk_size: int, overlap: int) -> list[dict[str, str | int]]:
     chunk_rows = []
 
     for page in pages:
@@ -42,11 +52,7 @@ def create_chunks(pages, chunk_size: int, overlap: int) -> list[dict[str, str | 
         source_file = page["source_file"]
         text = page["text"]
 
-        chunks = chunk_text(
-            text=text,
-            chunk_size=chunk_size,
-            overlap=overlap,
-        )
+        chunks = chunk_text(text=text, chunk_size=chunk_size, overlap=overlap)
 
         for chunk_index, chunk in enumerate(chunks):
             chunk_id = sha256(
