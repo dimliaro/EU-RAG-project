@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DEEP INDEX — Retrieval Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void:#070908;
+    --void-2:#0b0e0d;
+    --panel:#0e1211;
+    --panel-2:#121817;
+    --line:rgba(198,255,61,0.10);
+    --line-2:rgba(233,236,232,0.08);
+    --ink:#eef1ec;
+    --dim:#8d938b;
+    --faint:#565c55;
+    --signal:#c6ff3d;
+    --signal-dk:#9ed41f;
+    --signal-glow:rgba(198,255,61,0.35);
+    --warn:#ff6a4d;
+    --mono:'Space Mono', ui-monospace, monospace;
+    --display:'Bricolage Grotesque', sans-serif;
+    --read:'Newsreader', Georgia, serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; min-height:100%; }
+
+  body{
+    background:var(--void);
+    color:var(--ink);
+    font-family:var(--mono);
+    font-size:15px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* ====== atmosphere layers ====== */
+  .bg{ position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+  .bg .grid{
+    position:absolute; inset:-2px;
+    background-image:
+      linear-gradient(var(--line-2) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-2) 1px, transparent 1px);
+    background-size:46px 46px;
+    mask-image:radial-gradient(120% 90% at 75% 0%, #000 35%, transparent 78%);
+    -webkit-mask-image:radial-gradient(120% 90% at 75% 0%, #000 35%, transparent 78%);
+  }
+
+  .bg .glow{
+    position:absolute; inset:0;
+    background:
+      radial-gradient(700px 420px at 80% -8%, rgba(198,255,61,0.10), transparent 60%),
+      radial-gradient(900px 600px at 12% 108%, rgba(60,120,40,0.08), transparent 55%);
+  }
+  .bg .grain{
+    position:absolute; inset:0; opacity:.04;
+  }
+
+  /* scan line that crawls the whole page subtly — transform-only (GPU) */
+  .bg .crawl{
+    position:absolute; left:0; right:0; top:0; height:140px;
+    background:linear-gradient(180deg, transparent, rgba(198,255,61,0.05), transparent);
+    will-change:transform;
+    animation:crawl 11s ease-in-out infinite;
+  }
+  @keyframes crawl{ 0%{ transform:translateY(-200px) } 100%{ transform:translateY(100vh) } }
+
+  /* ====== shell ====== */
+  .shell{ position:relative; z-index:1; max-width:960px; margin:0 auto; padding:0 26px 120px; }
+
+  /* ---- topbar ---- */
+  .top{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px; padding:20px 0 18px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .brandmark{ display:flex; align-items:center; gap:11px; font-size:11px; letter-spacing:.22em; color:var(--dim); }
+  .brandmark b{ color:var(--ink); font-weight:700; }
+  .glyph{
+    width:13px; height:13px; border:1.5px solid var(--signal); border-radius:3px;
+    box-shadow:0 0 12px var(--signal-glow); position:relative; flex:none;
+    animation:breathe 2.6s ease-in-out infinite;
+  }
+  .glyph::after{ content:""; position:absolute; inset:3px; background:var(--signal); border-radius:1px; }
+  @keyframes breathe{ 0%,100%{ box-shadow:0 0 6px var(--signal-glow) } 50%{ box-shadow:0 0 18px var(--signal-glow) } }
+
+  .endpoint{ display:flex; align-items:center; gap:9px; font-size:11px; color:var(--faint); letter-spacing:.08em; }
+  .endpoint .lbl{ text-transform:uppercase; }
+  .endpoint input{
+    background:var(--panel); border:1px solid var(--line-2); color:var(--signal);
+    font-family:var(--mono); font-size:11px; padding:6px 10px; border-radius:6px; outline:none;
+    width:210px; transition:border-color .2s, box-shadow .2s;
+  }
+  .endpoint input:focus{ border-color:var(--signal); box-shadow:0 0 0 3px rgba(198,255,61,0.08); }
+
+  /* ---- hero ---- */
+  .hero{ padding:62px 0 30px; position:relative; }
+  .kicker{
+    font-size:11px; letter-spacing:.42em; text-transform:uppercase; color:var(--signal-dk);
+    margin:0 0 22px; display:flex; align-items:center; gap:14px;
+  }
+  .kicker::before{ content:""; width:34px; height:1px; background:var(--signal); box-shadow:0 0 8px var(--signal-glow); }
+
+  h1{
+    font-family:var(--display);
+    font-weight:800;
+    font-size:clamp(50px, 12vw, 132px);
+    line-height:.86;
+    letter-spacing:-.03em;
+    margin:0;
+    text-transform:uppercase;
+  }
+  h1 .ln{ display:block; overflow:hidden; }
+  h1 .ln span{ display:block; animation:rise .9s cubic-bezier(.16,1,.3,1) both; }
+  h1 .ln:nth-child(2) span{ animation-delay:.08s; }
+  h1 .stroke{
+    color:transparent;
+    -webkit-text-stroke:1.4px var(--signal);
+    position:relative;
+  }
+  @keyframes rise{ from{ transform:translateY(102%); } to{ transform:translateY(0); } }
+
+  .lede{
+    margin:26px 0 0; max-width:58ch; color:var(--dim); font-size:14px; line-height:1.7;
+    animation:fade .9s ease .35s both;
+  }
+  .lede b{ color:var(--ink); font-weight:400; border-bottom:1px solid var(--signal); }
+
+  /* ---- console / input ---- */
+  .console{ margin-top:48px; animation:fade .9s ease .45s both; }
+
+  .input-wrap{
+    position:relative;
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    border:1px solid var(--line);
+    border-radius:16px;
+    transition:border-color .25s, box-shadow .25s;
+    overflow:hidden;
+  }
+  .input-wrap::before{
+    content:""; position:absolute; left:0; top:0; width:3px; height:100%;
+    background:var(--signal); box-shadow:0 0 16px var(--signal-glow);
+    opacity:.5; transition:opacity .25s;
+  }
+  .input-wrap:focus-within{ border-color:var(--signal); box-shadow:0 0 0 4px rgba(198,255,61,0.07), 0 30px 80px -40px rgba(198,255,61,0.4); }
+  .input-wrap:focus-within::before{ opacity:1; }
+
+  .prompt-row{ display:flex; align-items:flex-start; padding:22px 22px 4px; }
+  .caret{ color:var(--signal); font-weight:700; padding-top:1px; margin-right:14px; user-select:none; text-shadow:0 0 10px var(--signal-glow); }
+
+  textarea{
+    flex:1; border:0; background:transparent; color:var(--ink);
+    font-family:var(--mono); font-size:18px; line-height:1.5;
+    resize:none; outline:none; overflow:hidden; min-height:30px;
+    padding:0; caret-color:var(--signal);
+  }
+  textarea::placeholder{ color:var(--faint); }
+
+  .foot{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px 16px 52px; }
+  .hint{ font-size:11px; color:var(--faint); letter-spacing:.04em; }
+  .hint kbd{
+    background:var(--void-2); border:1px solid var(--line-2); border-radius:4px;
+    padding:2px 7px; font-family:var(--mono); font-size:10.5px; color:var(--dim);
+  }
+
+  .send{
+    font-family:var(--mono); font-weight:700; font-size:12.5px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--void);
+    background:var(--signal); border:0; border-radius:9px;
+    padding:13px 26px; cursor:pointer; position:relative; overflow:hidden;
+    transition:transform .08s, box-shadow .25s, background .2s;
+    box-shadow:0 0 22px -4px var(--signal-glow);
+  }
+  .send:hover:not(:disabled){ background:#d4ff5e; box-shadow:0 0 34px -2px var(--signal-glow); }
+  .send:active:not(:disabled){ transform:translateY(1px) scale(.99); }
+  .send:disabled{ background:var(--panel-2); color:var(--faint); cursor:not-allowed; box-shadow:none; }
+  .send .arrow{ display:inline-block; margin-left:8px; transition:transform .2s; }
+  .send:hover:not(:disabled) .arrow{ transform:translateX(3px); }
+
+  /* ---- output ---- */
+  .out{ margin-top:54px; }
+
+  /* loading sequence */
+  .loader{ position:relative; }
+  .scanbar{
+    height:2px; width:100%; background:var(--line-2); border-radius:2px; overflow:hidden; position:relative;
+  }
+  .scanbar::after{
+    content:""; position:absolute; top:0; left:-40%; width:40%; height:100%;
+    background:linear-gradient(90deg, transparent, var(--signal), transparent);
+    box-shadow:0 0 14px var(--signal-glow);
+    animation:sweep 1.1s ease-in-out infinite;
+  }
+  @keyframes sweep{ to{ left:120%; } }
+  .phases{ margin-top:20px; font-size:13px; }
+  .phase{
+    display:flex; align-items:center; gap:12px; color:var(--faint);
+    padding:5px 0; letter-spacing:.03em; transition:color .3s;
+  }
+  .phase .tick{ width:7px; height:7px; border-radius:50%; background:var(--faint); flex:none; transition:all .3s; }
+  .phase.active{ color:var(--ink); }
+  .phase.active .tick{ background:var(--signal); box-shadow:0 0 10px var(--signal-glow); }
+  .phase.done{ color:var(--dim); }
+  .phase.done .tick{ background:var(--signal-dk); box-shadow:none; }
+  .phase .ms{ margin-left:auto; color:var(--faint); font-size:11px; }
+
+  /* labels */
+  .lab{
+    display:flex; align-items:center; gap:16px; margin:0 0 18px;
+    font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--faint);
+  }
+  .lab b{ color:var(--signal-dk); font-weight:700; }
+  .lab::after{ content:""; flex:1; height:1px; background:var(--line); }
+
+  /* answer */
+  .answer-block{ animation:fade .6s ease both; }
+  .answer{
+    font-family:var(--read); font-weight:400;
+    font-size:clamp(20px, 2.6vw, 27px); line-height:1.62; color:var(--ink);
+    white-space:pre-wrap; word-break:break-word; letter-spacing:.002em;
+  }
+
+  /* chunks */
+  .chunks{ margin-top:56px; }
+  .frag{
+    position:relative; background:var(--panel); border:1px solid var(--line-2);
+    border-radius:12px; padding:0; margin-bottom:14px; overflow:hidden;
+    animation:fragIn .55s cubic-bezier(.16,1,.3,1) both;
+    transition:border-color .2s, transform .2s;
+  }
+  .frag:hover{ border-color:var(--line); transform:translateX(2px); }
+  .frag-head{
+    display:flex; align-items:center; gap:14px; padding:13px 16px;
+    cursor:pointer; user-select:none;
+  }
+  .frag-idx{
+    font-family:var(--display); font-weight:800; font-size:15px; color:var(--signal);
+    min-width:34px; letter-spacing:-.02em;
+  }
+  .frag-meta{ font-size:11px; color:var(--dim); letter-spacing:.04em; flex:1; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .frag-score{ display:flex; align-items:center; gap:9px; font-size:10.5px; color:var(--faint); }
+  .meter{ width:64px; height:5px; background:var(--void-2); border-radius:3px; overflow:hidden; }
+  .meter i{ display:block; height:100%; background:linear-gradient(90deg, var(--signal-dk), var(--signal));
+    box-shadow:0 0 8px var(--signal-glow); border-radius:3px; width:0; transition:width 1s cubic-bezier(.16,1,.3,1); }
+  .chev{ color:var(--faint); transition:transform .25s; font-size:11px; }
+  .frag.open .chev{ transform:rotate(90deg); color:var(--signal); }
+  .frag-body{
+    max-height:0; overflow:hidden; transition:max-height .35s ease;
+    font-size:13px; color:var(--dim); line-height:1.6;
+  }
+  .frag.open .frag-body{ max-height:340px; overflow:auto; }
+  .frag-body .pad{ padding:0 16px 16px 64px; white-space:pre-wrap; word-break:break-word; border-top:1px solid var(--line-2); padding-top:14px; }
+
+  @keyframes fragIn{ from{ opacity:0; transform:translateY(16px); } to{ opacity:1; transform:none; } }
+
+  /* states */
+  .error{
+    background:rgba(255,106,77,0.07); border:1px solid rgba(255,106,77,0.4);
+    border-left:3px solid var(--warn); color:#ffb3a3; border-radius:11px;
+    padding:18px 20px; font-size:13px; white-space:pre-wrap; word-break:break-word; line-height:1.65;
+    animation:fade .4s ease both;
+  }
+  .error b{ color:var(--warn); }
+
+  @keyframes fade{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+
+  /* footer status */
+  .sysline{
+    margin-top:70px; padding-top:18px; border-top:1px solid var(--line);
+    display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint);
+  }
+  .sysline .live{ color:var(--signal-dk); display:flex; align-items:center; gap:7px; }
+  .sysline .live::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--signal);
+    box-shadow:0 0 8px var(--signal-glow); animation:blink 1.4s ease-in-out infinite; }
+  @keyframes blink{ 0%,100%{ opacity:.25 } 50%{ opacity:1 } }
+
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--signal-dk); }
+
+  ::selection{ background:var(--signal); color:var(--void); }
+</style>
+</head>
+<body>
+  <!-- atmosphere -->
+  <div class="bg" aria-hidden="true">
+    <div class="grid"></div>
+    <div class="glow"></div>
+    <div class="crawl"></div>
+    <svg class="grain" xmlns="http://www.w3.org/2000/svg">
+      <filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter>
+      <rect width="100%" height="100%" filter="url(#n)"/>
+    </svg>
+  </div>
+
+  <div class="shell">
+    <!-- topbar -->
+    <div class="top">
+      <div class="brandmark">
+        <span class="glyph"></span>
+        <span>DEEP&nbsp;INDEX&nbsp;&nbsp;//&nbsp;&nbsp;<b>day_09</b>&nbsp;retrieval&nbsp;engine</span>
+      </div>
+      <div class="endpoint">
+        <span class="lbl">node</span>
+        <input id="base" type="text" value="http://127.0.0.1:8001" spellcheck="false" aria-label="API endpoint">
+      </div>
+    </div>
+
+    <!-- hero -->
+    <section class="hero">
+      <p class="kicker">retrieval-augmented generation</p>
+      <h1>
+        <span class="ln"><span>Interrogate</span></span>
+        <span class="ln"><span class="stroke">the corpus</span></span>
+      </h1>
+      <p class="lede">Pose a question and the engine embeds it, sweeps the vector store for the <b>top-k</b> nearest passages, and synthesises a grounded answer. Every claim is traceable to the fragments it surfaced below.</p>
+    </section>
+
+    <!-- console -->
+    <section class="console">
+      <div class="input-wrap">
+        <div class="prompt-row">
+          <span class="caret">&gt;</span>
+          <textarea id="q" rows="1" placeholder="what does the document say about…"></textarea>
+        </div>
+        <div class="foot">
+          <span class="hint"><kbd>⌘</kbd> / <kbd>Ctrl</kbd> + <kbd>↵</kbd> &nbsp;to transmit</span>
+          <button class="send" id="send">Query<span class="arrow">→</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- output -->
+    <section class="out" id="out"></section>
+
+    <!-- sysline -->
+    <div class="sysline">
+      <span class="live">system nominal</span>
+      <span id="stamp">awaiting input</span>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const qEl    = document.getElementById('q');
+  const sendEl = document.getElementById('send');
+  const baseEl = document.getElementById('base');
+  const outEl  = document.getElementById('out');
+  const stamp  = document.getElementById('stamp');
+
+  /* autosize textarea */
+  function grow(){ qEl.style.height='auto'; qEl.style.height=Math.min(qEl.scrollHeight,260)+'px'; }
+  qEl.addEventListener('input', grow);
+
+  const esc = s => String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  /* ---- loading sequence ---- */
+  const PHASES = [
+    ['embedding query vector', 'dim 384'],
+    ['sweeping vector store', 'cosine'],
+    ['ranking nearest passages', 'top-k'],
+    ['synthesising response', 'azure llm']
+  ];
+  let phaseTimer = null;
+
+  function startLoader(){
+    sendEl.disabled = true; sendEl.querySelector('.arrow').textContent='…';
+    sendEl.childNodes[0].nodeValue='Working';
+    stamp.textContent = 'query in flight';
+
+    let html = '<div class="loader fade"><div class="scanbar"></div><div class="phases">';
+    PHASES.forEach((p,i)=>{
+      html += '<div class="phase" data-i="'+i+'"><span class="tick"></span><span>'+p[0]+'</span><span class="ms">'+p[1]+'</span></div>';
+    });
+    html += '</div></div>';
+    outEl.innerHTML = html;
+
+    const nodes = [...outEl.querySelectorAll('.phase')];
+    let i = 0;
+    const advance = () => {
+      nodes.forEach((n,k)=>{ n.classList.toggle('active', k===i); if(k<i) n.classList.add('done'); });
+      i = (i+1) % nodes.length;
+    };
+    advance();
+    phaseTimer = setInterval(advance, 720);
+  }
+
+  function stopLoader(){
+    if(phaseTimer){ clearInterval(phaseTimer); phaseTimer=null; }
+    sendEl.disabled=false; sendEl.querySelector('.arrow').textContent='→';
+    sendEl.childNodes[0].nodeValue='Query';
+  }
+
+  /* ---- chunk rendering (handles strings OR dicts) ---- */
+  function renderFrag(chunk, i){
+    let text='', metaBits=[], score=null;
+    if(chunk && typeof chunk==='object'){
+      text = chunk.text ?? chunk.page_content ?? chunk.content ?? chunk.chunk
+             ?? JSON.stringify(chunk, null, 2);
+      const m = chunk.metadata || {};
+      if(m.source) metaBits.push(String(m.source).split(/[\\/]/).pop());
+      if(m.page !== undefined) metaBits.push('p.'+m.page);
+      const s = chunk.score ?? chunk.distance ?? m.score;
+      if(s !== undefined && s !== null && !isNaN(s)) score = Number(s);
+    } else {
+      text = chunk;
+    }
+    const preview = String(text).replace(/\s+/g,' ').trim().slice(0,60);
+    const metaLabel = metaBits.length ? metaBits.join(' · ') : '“'+esc(preview)+'…”';
+
+    let scoreHtml = '';
+    if(score !== null){
+      const pct = Math.max(0, Math.min(1, score>1 ? 1/(1+score) : score)) * 100; // distance→similarity-ish
+      scoreHtml = '<div class="frag-score"><span>'+score.toFixed(3)+'</span>'+
+                  '<span class="meter"><i data-w="'+pct.toFixed(0)+'"></i></span></div>';
+    }
+
+    const num = String(i+1).padStart(2,'0');
+    return ''+
+      '<div class="frag" style="animation-delay:'+(i*0.06)+'s">'+
+        '<div class="frag-head">'+
+          '<span class="frag-idx">'+num+'</span>'+
+          '<span class="frag-meta">'+metaLabel+'</span>'+
+          scoreHtml+
+          '<span class="chev">▶</span>'+
+        '</div>'+
+        '<div class="frag-body"><div class="pad">'+esc(text)+'</div></div>'+
+      '</div>';
+  }
+
+  function render(data){
+    const chunks = Array.isArray(data.retrieved_chunks) ? data.retrieved_chunks : [];
+    let html = '<div class="answer-block">';
+    html +=   '<p class="lab"><b>response</b> synthesised</p>';
+    html +=   '<div class="answer">'+esc(data.answer)+'</div>';
+    html += '</div>';
+
+    if(chunks.length){
+      html += '<div class="chunks">';
+      html +=   '<p class="lab"><b>fragments</b> retrieved · '+chunks.length+'</p>';
+      html +=   chunks.map(renderFrag).join('');
+      html += '</div>';
+    }
+    outEl.innerHTML = html;
+
+    /* wire expand + animate meters */
+    outEl.querySelectorAll('.frag-head').forEach(h=>{
+      h.addEventListener('click', ()=> h.parentElement.classList.toggle('open'));
+    });
+    requestAnimationFrame(()=>{
+      outEl.querySelectorAll('.meter i').forEach(el=> el.style.width = el.dataset.w+'%');
+    });
+
+    stamp.textContent = chunks.length+' fragments · '+new Date().toLocaleTimeString();
+  }
+
+  function showError(title, body){
+    outEl.innerHTML = '<div class="error"><b>'+esc(title)+'</b>\n'+esc(body)+'</div>';
+    stamp.textContent = 'error';
+  }
+
+  async function ask(){
+    const question = qEl.value.trim();
+    if(!question){ qEl.focus(); return; }
+    const base = baseEl.value.trim().replace(/\/+$/,'');
+
+    startLoader();
+    const t0 = performance.now();
+
+    try{
+      const res = await fetch(base+'/query', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ question })
+      });
+
+      if(!res.ok){
+        let detail = res.status+' '+res.statusText;
+        try{ const e=await res.json(); if(e && e.detail) detail += ' — '+e.detail; }catch(_){}
+        throw Object.assign(new Error(detail), {http:true});
+      }
+
+      const data = await res.json();
+      // tiny floor so the scan sequence reads as deliberate, not janky
+      const elapsed = performance.now()-t0;
+      if(elapsed < 600) await new Promise(r=>setTimeout(r, 600-elapsed));
+      stopLoader();
+      render(data);
+    }catch(e){
+      stopLoader();
+      const msg = (e && e.message) ? e.message : String(e);
+      if(!e.http && /Failed to fetch|NetworkError|load failed/i.test(msg)){
+        showError('NODE UNREACHABLE',
+          'No response from '+base+'.\nConfirm uvicorn is live and CORS permits this origin.\n\n  app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["POST"], allow_headers=["*"])');
+      } else {
+        showError('REQUEST FAILED', msg);
+      }
+    }
+  }
+
+  sendEl.addEventListener('click', ask);
+  qEl.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); ask(); }
+  });
+  qEl.focus();
+})();
+</script>
+</body>
+</html>
