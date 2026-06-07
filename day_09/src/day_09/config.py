@@ -8,6 +8,7 @@ _HERE = Path(__file__).resolve().parent        # .../src/day_09/
 BASE_DIR = _HERE.parent.parent                 # .../day_09/ project root
 
 # ── Local paths ──────────────────────────────────────────────────────────────
+DATA_DIR    = BASE_DIR / "data"
 PDF_PATH    = BASE_DIR / "data" / "32016R0679_EN.pdf"
 CHROMA_PATH = _HERE / "chroma_db"
 
@@ -27,9 +28,10 @@ DELTA_RESULTS_TABLE = os.getenv("DELTA_RESULTS_TABLE", "rag_results")
 
 # Path to the raw file inside the Unity Catalog Volume
 # Format: /Volumes/<catalog>/<schema>/<volume_name>/<filename>
+#This path is the path for team6. Dimitris, Panos, Nontas
 VOLUME_FILE_PATH = os.getenv(
     "VOLUME_FILE_PATH",
-    f"/Volumes/{DELTA_CATALOG}/{DELTA_SCHEMA}/files/32016R0679_EN.pdf",
+    f"/Volumes/{DELTA_CATALOG}/{DELTA_SCHEMA}/volume/pdfs/32016R0679_EN.pdf",
 )
 
 # ── Databricks — Vector Search ────────────────────────────────────────────────

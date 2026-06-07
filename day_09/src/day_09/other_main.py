@@ -43,7 +43,7 @@ def main():
     )
 
     if vector_store.collection.count() == 0:
-        rag.ingest()
+        rag.ingest_databricks()
     else:
         print("Collection already populated, skipping ingestion.")
 
