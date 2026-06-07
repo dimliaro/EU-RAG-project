@@ -25,6 +25,7 @@ dependencies = [
     "pypdf>=6.13.0",
     "langchain-text-splitters>=1.1.2",
     "databricks-connect>=16.1.7",
+    "langchain-experimental>=0.0.42",
 ]
 
 [project.scripts]

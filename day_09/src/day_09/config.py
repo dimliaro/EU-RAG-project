@@ -14,6 +14,7 @@ CHROMA_PATH = _HERE / "chroma_db"
 COLLECTION_NAME      = "pdf_rag_collection"
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
+
 CHUNK_SIZE    = 500
 CHUNK_OVERLAP = 80
 TOP_K         = 5
