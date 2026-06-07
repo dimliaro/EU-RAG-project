@@ -1,7 +1,4 @@
-
 """
-file: all_type_chunker.py
-
 Generic, file-type-aware chunker for Databricks volumes.
 Supports: .pdf, .csv, .docx, .txt
 

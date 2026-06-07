@@ -1,11 +1,9 @@
 """
+Local embedding model using SentenceTransformer.
 
-embeddings.py
-This module defines the LocalEmbeddingModel class, which provides functionality to generate embeddings for documents and queries
-using a local embedding model (SentenceTransformer). In a Databricks environment, this class can be replaced with calls to the Databricks Foundation Model API or Azure OpenAI embeddings.
-
+In a Databricks environment, replace this class with calls to the
+Databricks Foundation Model API or Azure OpenAI embeddings.
 """
-
 
 from sentence_transformers import SentenceTransformer
 

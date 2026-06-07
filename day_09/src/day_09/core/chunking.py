@@ -1,5 +1,4 @@
 """
-file: chunking.py
 Paragraph-aware chunking: splits on natural paragraph breaks first, then
 word-splits only paragraphs that exceed chunk_size. Overlap is applied by
 carrying the tail of the previous chunk into the next one.

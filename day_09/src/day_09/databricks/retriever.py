@@ -1,9 +1,8 @@
 """
-databricks_retriever.py
 Queries a Databricks Vector Search index at query time.
 
 The Vector Search index is created on top of the chunks Delta table
-(catalog.schema.gdpr_chunks) and auto-syncs as new chunks are written.
+and auto-syncs as new chunks are written.
 
 Setup (one-time, in Databricks UI or SDK):
     1. Create a Vector Search endpoint

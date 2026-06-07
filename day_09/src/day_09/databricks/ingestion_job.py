@@ -1,6 +1,4 @@
 """
-all_type_ingestion.py
-
 Scans a Databricks Volume directory, chunks every supported file,
 and writes all chunks to a single Delta table.
 
@@ -14,7 +12,7 @@ from databricks.sdk import WorkspaceClient
 import pandas as pd
 from pathlib import Path
 
-from day_09.all_type_chunker import chunk_file
+from day_09.databricks.chunker import chunk_file
 from day_09.config import DELTA_CATALOG, DELTA_SCHEMA, DELTA_TABLE
 
 VOLUME_DIR = f"/Volumes/{DELTA_CATALOG}/team6/volume/pdfs"

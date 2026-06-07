@@ -1,10 +1,8 @@
 """
-Document Ingestion Module
-
-Extracts text from PDF, DOCX, TXT, CSV, and HTML files into a uniform list of chunk dicts:
+Extracts text from PDF, DOCX, TXT, CSV, and HTML files into a uniform list of page dicts:
   {"source_file": str, "page_number": int, "text": str}
 
-For PDFs each page is one chunk; for other formats chunks are logical units
+For PDFs each page is one entry; for other formats entries are logical units
 (paragraphs / rows / sections) numbered sequentially.
 """
 
@@ -15,10 +13,6 @@ import fitz
 from bs4 import BeautifulSoup
 from docx import Document
 
-
-#
-# Per-format extractors
-# 
 
 def _extract_pdf(file_path: str) -> list[dict]:
     doc = fitz.open(file_path)
@@ -65,12 +59,10 @@ def _extract_csv(file_path: str) -> list[dict]:
 def _extract_html(file_path: str) -> list[dict]:
     raw = Path(file_path).read_text(encoding="utf-8", errors="replace")
     soup = BeautifulSoup(raw, "html.parser")
-    # remove script/style noise
     for tag in soup(["script", "style", "head"]):
         tag.decompose()
     paragraphs = [t.get_text(" ", strip=True) for t in soup.find_all(["p", "li", "h1", "h2", "h3", "h4", "h5", "h6"]) if t.get_text(strip=True)]
     if not paragraphs:
-        # fallback: whole body text split by double newlines
         body = soup.get_text("\n")
         paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
     return [
@@ -78,10 +70,6 @@ def _extract_html(file_path: str) -> list[dict]:
         for i, p in enumerate(paragraphs, start=1)
     ]
 
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 _EXTRACTORS = {
     ".pdf":  _extract_pdf,

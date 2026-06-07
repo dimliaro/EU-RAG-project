@@ -1,14 +1,15 @@
 """
-ragAPI.py — FastAPI server
+FastAPI server for the RAG pipeline.
 
 Startup flow:
   1. Load components (embedding model, ChromaDB, LLM)
   2. If ChromaDB is empty → read chunks from Databricks Delta table → embed → store
+     Falls back to local data/ directory if Databricks is unavailable.
   3. POST /query: embed question → search ChromaDB → call LLM → return answer
 
 Run:
     cd day_09/
-    uv run uvicorn day_09.ragAPI:app --host 0.0.0.0 --port 8001 --reload
+    uv run uvicorn day_09.api.app:app --host 0.0.0.0 --port 8080 --reload
 """
 
 from contextlib import asynccontextmanager
@@ -26,12 +27,12 @@ from day_09.config import (
     TOP_K,
     VOLUME_FILE_PATH,
 )
-from day_09.embeddings import LocalEmbeddingModel
-from day_09.llm import AzureOpenAIChatLLM
-from day_09.rag_pipeline import RAGPipeline
-from day_09.vector_store import ChromaVectorStore
+from day_09.core.embeddings import LocalEmbeddingModel
+from day_09.core.llm import AzureOpenAIChatLLM
+from day_09.core.rag_pipeline import RAGPipeline
+from day_09.core.vector_store import ChromaVectorStore
 
-# ── Shared components (defined first so lifespan can reference them) ──────────
+# ── Shared components ─────────────────────────────────────────────────────────
 
 embedding_model = LocalEmbeddingModel(model_name=EMBEDDING_MODEL_NAME)
 vector_store    = ChromaVectorStore(persist_path=CHROMA_PATH, collection_name=COLLECTION_NAME)
@@ -51,9 +52,10 @@ rag = RAGPipeline(
 
 SUPPORTED = {".pdf", ".docx", ".txt", ".csv", ".html"}
 
+
 def _ingest_local_data_dir():
-    from day_09.pdf_ingestions import extract_pages
-    from day_09.chunking import create_chunks
+    from day_09.ingestion.local_loader import extract_pages
+    from day_09.core.chunking import create_chunks
 
     files = [f for f in DATA_DIR.iterdir() if f.suffix.lower() in SUPPORTED]
     print(f"Found {len(files)} local files: {[f.name for f in files]}")
@@ -80,7 +82,7 @@ async def lifespan(app: FastAPI):
     if vector_store.collection.count() == 0:
         print("ChromaDB is empty — loading chunks from Databricks Delta table...")
         try:
-            from day_09.all_type_loader import load_chunks_from_delta
+            from day_09.ingestion.delta_loader import load_chunks_from_delta
             chunks     = load_chunks_from_delta()
             texts      = [c["content"] for c in chunks]
             print(f"Embedding {len(chunks)} chunks...")

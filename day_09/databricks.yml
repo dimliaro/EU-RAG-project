@@ -18,12 +18,12 @@ targets:
 
 resources:
   jobs:
-    upload_chunks:
-      name: "[dev] upload_chunks_to_delta"
+    ingest_chunks:
+      name: "[dev] ingest_chunks_to_delta"
       tasks:
         - task_key: ingest
           spark_python_task:
-            python_file: src/day_09/spark_uploader.py
+            python_file: src/day_09/databricks/spark_ingester.py
           new_cluster:
             spark_version: "15.4.x-scala2.12"
             node_type_id: "i3.xlarge"
