@@ -1,28 +1,33 @@
 """
-spark_uploader.py
+Databricks job file — runs as a spark_python_task inside the bundle.
+`spark` is injected by the Databricks runtime (intentionally unresolved locally).
 
-Databricks job file — runs as a spark_python_task inside a bundle.
-`spark` is injected by the Databricks runtime; it is intentionally
-unresolved locally (yellow in the IDE).
+What this job does:
+  1. Reads the raw file directly from a Unity Catalog Volume path
+  2. Extracts text (PDF, DOCX, TXT, CSV, HTML)
+  3. Creates paragraph-aware chunks
+  4. Writes chunks to a Delta table in Unity Catalog
 
-Bundle command:
+Bundle commands:
     databricks bundle validate
     databricks bundle deploy
-    databricks bundle run upload_chunks
+    databricks bundle run ingest_chunks
 """
 
-from day_09.pdf_ingestions import extract_pages
-from day_09.chunking import create_chunks
+import os
+
+from pyspark.sql.types import IntegerType, StringType, StructField, StructType
+
+from day_09.ingestion.local_loader import extract_pages
+from day_09.core.chunking import create_chunks
 from day_09.config import (
-    PDF_PATH,
-    CHUNK_SIZE,
     CHUNK_OVERLAP,
+    CHUNK_SIZE,
     DELTA_CATALOG,
     DELTA_SCHEMA,
     DELTA_TABLE,
+    VOLUME_FILE_PATH,
 )
-
-from pyspark.sql.types import IntegerType, StringType, StructField, StructType  # noqa: E402
 
 CHUNKS_SCHEMA = StructType(
     [
@@ -36,11 +41,10 @@ CHUNKS_SCHEMA = StructType(
 
 
 def main():
-    print("Reading file...")
-    pages = extract_pages(str(PDF_PATH))
-    print(f"Extracted {len(pages)} pages.")
+    print(f"Reading file from Volume: {VOLUME_FILE_PATH}")
+    pages = extract_pages(VOLUME_FILE_PATH)
+    print(f"Extracted {len(pages)} pages/sections.")
 
-    print("Creating chunks...")
     chunks = create_chunks(pages=pages, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
     print(f"Created {len(chunks)} chunks.")
 
@@ -58,9 +62,14 @@ def main():
     df = spark.createDataFrame(rows, schema=CHUNKS_SCHEMA)  # noqa: F821 — spark injected by Databricks
 
     table_name = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_TABLE}"
-    df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").saveAsTable(table_name)
+    (
+        df.write.format("delta")
+        .mode("overwrite")
+        .option("overwriteSchema", "true")
+        .saveAsTable(table_name)
+    )
 
-    print(f"Uploaded {df.count()} chunks to {table_name}.")
+    print(f"Saved {df.count()} chunks to Delta table '{table_name}'.")
 
 
 if __name__ == "__main__":

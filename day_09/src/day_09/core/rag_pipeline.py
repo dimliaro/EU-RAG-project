@@ -1,5 +1,4 @@
 """
-rag_pipeline.py
 Orchestrates the full RAG pipeline in two modes:
 
 LOCAL mode  (ingest / ask)
@@ -10,8 +9,8 @@ DATABRICKS mode  (ingest_databricks / ask_databricks)
            → Vector Search → LLM → results written to Delta table
 """
 
-from day_09.pdf_ingestions import extract_pages
-from day_09.chunking import create_chunks
+from day_09.ingestion.local_loader import extract_pages
+from day_09.core.chunking import create_chunks
 
 
 class RAGPipeline:
@@ -92,8 +91,8 @@ class RAGPipeline:
         Note: step 3 is run separately with:
             databricks bundle run ingest_chunks
         """
-        from day_09.data_fetcher import fetch_file
-        from day_09.volume_uploader import upload_to_volume
+        from day_09.databricks.data_fetcher import fetch_file
+        from day_09.databricks.volume_uploader import upload_to_volume
         from day_09.config import VOLUME_FILE_PATH
 
         print(f"Fetching file from: {file_url}")
@@ -102,7 +101,7 @@ class RAGPipeline:
         print("Uploading to Databricks Volume...")
         upload_to_volume(local_path=local_path, volume_path=VOLUME_FILE_PATH)
 
-        print( 
+        print(
             "File uploaded. Run the Databricks bundle job to ingest:\n"
             "  databricks bundle run ingest_chunks"
         )
@@ -142,7 +141,6 @@ class RAGPipeline:
             }
 
             table_name = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_RESULTS_TABLE}"
-            # Uses Databricks SDK statement execution API to write the row
             client = WorkspaceClient()
             client.statement_execution.execute_statement(
                 warehouse_id=None,  # set DATABRICKS_WAREHOUSE_ID in .env

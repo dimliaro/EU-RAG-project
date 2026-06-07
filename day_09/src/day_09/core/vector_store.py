@@ -1,22 +1,16 @@
 """
-vector_store.py
+Local Chroma vector database.
 
+Later in Databricks, replace this class with:
+- Databricks VectorSearchClient
+- Databricks AI Search index
 """
-
 
 import chromadb
 from chromadb.config import Settings
 
 
 class ChromaVectorStore:
-    """
-    Local Chroma vector database.
-
-    Later in Databricks, replace this class with:
-    - Databricks VectorSearchClient
-    - Databricks AI Search index
-    """
-
     def __init__(self, persist_path: str, collection_name: str):
         self.client = chromadb.PersistentClient(
             path=str(persist_path),
@@ -41,14 +35,14 @@ class ChromaVectorStore:
             for chunk in chunks
         ]
 
-        self.collection.upsert( #upser = update + insert
+        self.collection.upsert(
             ids=ids,
             documents=documents,
             embeddings=embeddings,
             metadatas=metadatas,
         )
 
-    def search(self, query_embedding: list[float], top_k: int = 5)->list[dict[str, str | int | float]]:
+    def search(self, query_embedding: list[float], top_k: int = 5) -> list[dict[str, str | int | float]]:
         results = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=top_k,

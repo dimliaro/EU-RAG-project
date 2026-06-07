@@ -1,7 +1,5 @@
 """
-all_type_loader.py
-
-Reads chunks from the Databricks Delta table (eu_law_chunks) via DatabricksConnect
+Reads chunks from the Databricks Delta table via DatabricksConnect
 and returns them in the format expected by the rest of the pipeline.
 
 Called once on API startup (if ChromaDB is empty) to populate the local vector store.
@@ -30,11 +28,11 @@ def load_chunks_from_delta() -> list[dict]:
     for row in rows:
         chunks.append(
             {
-                "chunk_id":   str(row["chunk_id"]),
+                "chunk_id":    str(row["chunk_id"]),
                 "source_file": str(row["document_id"]),
                 "page_number": int(row["page_number"]) if row["page_number"] is not None else 0,
                 "chunk_index": int(row["chunk_id"]),
-                "content":    str(row["chunk_text"]),
+                "content":     str(row["chunk_text"]),
             }
         )
 

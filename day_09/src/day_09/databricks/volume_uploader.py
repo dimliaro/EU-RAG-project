@@ -1,5 +1,4 @@
 """
-volume_uploader.py
 Uploads a local file to a Databricks Unity Catalog Volume using the Databricks SDK.
 
 Volume path format: /Volumes/<catalog>/<schema>/<volume_name>/<filename>

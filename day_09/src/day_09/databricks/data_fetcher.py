@@ -1,5 +1,4 @@
 """
-data_fetcher.py
 Downloads a file from a URL or API endpoint to a local directory.
 Supports any file type — the extension is preserved from the URL.
 """

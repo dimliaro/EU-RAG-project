@@ -15,7 +15,6 @@ CHROMA_PATH = _HERE / "chroma_db"
 COLLECTION_NAME      = "pdf_rag_collection"
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-
 CHUNK_SIZE    = 500
 CHUNK_OVERLAP = 80
 TOP_K         = 5
@@ -28,7 +27,6 @@ DELTA_RESULTS_TABLE = os.getenv("DELTA_RESULTS_TABLE", "rag_results")
 
 # Path to the raw file inside the Unity Catalog Volume
 # Format: /Volumes/<catalog>/<schema>/<volume_name>/<filename>
-#This path is the path for team6. Dimitris, Panos, Nontas
 VOLUME_FILE_PATH = os.getenv(
     "VOLUME_FILE_PATH",
     f"/Volumes/{DELTA_CATALOG}/{DELTA_SCHEMA}/volume/pdfs/32016R0679_EN.pdf",
