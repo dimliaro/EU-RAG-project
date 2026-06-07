@@ -12,7 +12,6 @@ All chunkers return: list[dict] with keys
 from io import BytesIO
 from pathlib import Path
 import fitz
-import pymupdf
 import pandas as pd
 from docx import Document
 from databricks.sdk import WorkspaceClient

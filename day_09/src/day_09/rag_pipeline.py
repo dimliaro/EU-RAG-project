@@ -102,7 +102,7 @@ class RAGPipeline:
         print("Uploading to Databricks Volume...")
         upload_to_volume(local_path=local_path, volume_path=VOLUME_FILE_PATH)
 
-        print(
+        print( 
             "File uploaded. Run the Databricks bundle job to ingest:\n"
             "  databricks bundle run ingest_chunks"
         )
