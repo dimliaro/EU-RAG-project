@@ -11,6 +11,7 @@ DATABRICKS mode  (ingest_databricks / ask_databricks)
 
 from day_09.ingestion.local_loader import extract_pages
 from day_09.core.chunking import create_chunks
+from day_09.core.smart_chunker import route_and_chunk
 
 
 class RAGPipeline:
@@ -43,11 +44,20 @@ class RAGPipeline:
         print(f"Extracted {len(pages)} chunks.")
 
         print("Creating chunks...")
-        chunks = create_chunks(
-            pages=pages,
-            chunk_size=self.chunk_size,
-            overlap=self.chunk_overlap,
-        )
+        try:
+            chunks = route_and_chunk(
+                pages=pages,
+                source_file=str(self.file_path),
+                chunk_size=self.chunk_size,
+                overlap=self.chunk_overlap,
+            )
+        except Exception as e:
+            print(f"Warning: smart chunker failed: {e}. Falling back to create_chunks.")
+            chunks = create_chunks(
+                pages=pages,
+                chunk_size=self.chunk_size,
+                overlap=self.chunk_overlap,
+            )
         print(f"Created {len(chunks)} chunks.")
 
         print("Creating embeddings...")

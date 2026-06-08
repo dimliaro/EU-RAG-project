@@ -56,6 +56,7 @@ SUPPORTED = {".pdf", ".docx", ".txt", ".csv", ".html"}
 
 def _ingest_local_data_dir():
     from day_09.core.chunking import create_chunks
+    from day_09.core.smart_chunker import route_and_chunk
     from day_09.ingestion.local_loader import extract_pages
 
     files = [f for f in DATA_DIR.iterdir() if f.suffix.lower() in SUPPORTED]
@@ -66,11 +67,20 @@ def _ingest_local_data_dir():
     for f in files:
         print(f"  Ingesting {f.name}...")
         pages = extract_pages(str(f))
-        chunks = create_chunks(
-            pages=pages,
-            chunk_size=CHUNK_SIZE,
-            overlap=CHUNK_OVERLAP,
-        )
+        try:
+            chunks = route_and_chunk(
+                pages=pages,
+                source_file=str(f),
+                chunk_size=CHUNK_SIZE,
+                overlap=CHUNK_OVERLAP,
+            )
+        except Exception as e:
+            print(f"Warning: smart chunker failed for {f.name}: {e}. Falling back to create_chunks.")
+            chunks = create_chunks(
+                pages=pages,
+                chunk_size=CHUNK_SIZE,
+                overlap=CHUNK_OVERLAP,
+            )
         all_chunks.extend(chunks)
         print(f"    -> {len(chunks)} chunks")
 
