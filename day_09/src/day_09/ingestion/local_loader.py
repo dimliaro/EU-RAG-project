@@ -9,7 +9,10 @@ For PDFs each page is one entry; for other formats entries are logical units
 import csv
 from pathlib import Path
 
-import fitz
+try:
+    import pymupdf as fitz  # PyMuPDF >= 1.24
+except ImportError:
+    import fitz
 from bs4 import BeautifulSoup
 from docx import Document
 

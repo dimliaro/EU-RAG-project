@@ -34,10 +34,7 @@ class AzureOpenAIChatLLM:
         )
 
     def generate(self, question: str, context: str) -> str:
-        prompt = f"""
-You are a grounded RAG assistant.
-
-Use only the provided context to answer the question.
+        prompt = f"""Use only the provided context to answer the question.
 
 If the answer is not present in the context, say:
 "The document does not contain enough information."
@@ -51,9 +48,14 @@ Context:
 
         response = self.client.invoke(
             [
-                SystemMessage(
-                    content="You answer only from the retrieved document context."
-                ),
+                SystemMessage(content=(
+                    "You answer only from the retrieved document context.\n\n"
+                    "The context may contain passages labelled [ARTICLE N] or [RECITAL N].\n"
+                    "Treat content labelled [ARTICLE ...] as the binding legal rule.\n"
+                    "Treat content labelled [RECITAL ...] as explanatory background only.\n"
+                    "When both are present, cite the Article as the rule and the Recital "
+                    "as supporting context, and make that distinction explicit in your answer."
+                )),
                 HumanMessage(content=prompt),
             ]
         )

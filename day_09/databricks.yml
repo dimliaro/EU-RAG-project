@@ -3,32 +3,52 @@ bundle:
 
 variables:
   catalog:
-    default: main
+    default: accenture2026dbcks
   schema:
-    default: rag
+    default: team6
   table:
-    default: gdpr_chunks
+    default: eu_chunks
+  enriched_table:
+    default: eu_chunks_enriched
 
 targets:
   dev:
     mode: development
     default: true
-    workspace:
-      host: ${workspace.host}   # set via: databricks configure
 
 resources:
   jobs:
+
+    # ── Job 1: raw file from Volume → Delta table of chunks ───────────────────
     ingest_chunks:
       name: "[dev] ingest_chunks_to_delta"
       tasks:
         - task_key: ingest
           spark_python_task:
             python_file: src/day_09/databricks/spark_ingester.py
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "i3.xlarge"
-            num_workers: 1
-            spark_env_vars:
-              DELTA_CATALOG: ${var.catalog}
-              DELTA_SCHEMA:  ${var.schema}
-              DELTA_TABLE:   ${var.table}
+          environment_key: serverless
+      environments:
+        - environment_key: serverless
+          spec:
+            client: "1"
+            dependencies:
+              - pymupdf>=1.27.2.3
+              - beautifulsoup4>=4.12.0
+              - python-docx>=1.1.0
+
+    # ── Job 2: chunks Delta table → enriched table with embedding column ──────
+    #    Run AFTER ingest_chunks. Output feeds the Vector Search index.
+    enrich_chunks:
+      name: "[dev] enrich_chunks_with_embeddings"
+      tasks:
+        - task_key: enrich
+          spark_python_task:
+            python_file: src/day_09/databricks/enrichment_job.py
+          environment_key: serverless
+      environments:
+        - environment_key: serverless
+          spec:
+            client: "1"
+            dependencies:
+              - pymupdf>=1.27.2.3
+              - mlflow

@@ -24,11 +24,13 @@ from day_09.config import (
     COLLECTION_NAME,
     DATA_DIR,
     EMBEDDING_MODEL_NAME,
+    MAX_ARTICLE_CHARS,
     TOP_K,
     VOLUME_FILE_PATH,
 )
 from day_09.core.embeddings import LocalEmbeddingModel
 from day_09.core.llm import AzureOpenAIChatLLM
+from day_09.core.query_logger import get_query_logger
 from day_09.core.rag_pipeline import RAGPipeline
 from day_09.core.vector_store import ChromaVectorStore
 
@@ -38,6 +40,11 @@ embedding_model = LocalEmbeddingModel(model_name=EMBEDDING_MODEL_NAME)
 vector_store    = ChromaVectorStore(persist_path=CHROMA_PATH, collection_name=COLLECTION_NAME)
 llm             = AzureOpenAIChatLLM()
 
+# Query audit logger — completely separate from the Chroma vector store.
+# It records questions + answers + retrieval metadata.
+# It never feeds back into retrieval.
+query_logger = get_query_logger()
+
 rag = RAGPipeline(
     file_path=VOLUME_FILE_PATH,
     embedding_model=embedding_model,
@@ -46,6 +53,7 @@ rag = RAGPipeline(
     chunk_size=CHUNK_SIZE,
     chunk_overlap=CHUNK_OVERLAP,
     top_k=TOP_K,
+    logger=query_logger,
 )
 
 # ── Local fallback: ingest every file in data/ ───────────────────────────────
@@ -55,7 +63,7 @@ SUPPORTED = {".pdf", ".docx", ".txt", ".csv", ".html"}
 
 def _ingest_local_data_dir():
     from day_09.ingestion.local_loader import extract_pages
-    from day_09.core.chunking import create_chunks
+    from day_09.core.smart_chunker import route_and_chunk
 
     files = [f for f in DATA_DIR.iterdir() if f.suffix.lower() in SUPPORTED]
     print(f"Found {len(files)} local files: {[f.name for f in files]}")
@@ -64,7 +72,13 @@ def _ingest_local_data_dir():
     for f in files:
         print(f"  Ingesting {f.name}...")
         pages  = extract_pages(str(f))
-        chunks = create_chunks(pages=pages, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
+        chunks = route_and_chunk(
+            pages=pages,
+            source_file=str(f),
+            chunk_size=CHUNK_SIZE,
+            overlap=CHUNK_OVERLAP,
+            max_article_chars=MAX_ARTICLE_CHARS,
+        )
         all_chunks.extend(chunks)
         print(f"    → {len(chunks)} chunks")
 
