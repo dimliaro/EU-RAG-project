@@ -20,6 +20,7 @@ from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
 from day_09.ingestion.local_loader import extract_pages
 from day_09.core.chunking import create_chunks
+from day_09.core.smart_chunker import route_and_chunk
 from day_09.config import (
     CHUNK_OVERLAP,
     CHUNK_SIZE,
@@ -45,7 +46,16 @@ def main():
     pages = extract_pages(VOLUME_FILE_PATH)
     print(f"Extracted {len(pages)} pages/sections.")
 
-    chunks = create_chunks(pages=pages, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
+    try:
+        chunks = route_and_chunk(
+            pages=pages,
+            source_file=VOLUME_FILE_PATH,
+            chunk_size=CHUNK_SIZE,
+            overlap=CHUNK_OVERLAP,
+        )
+    except Exception as e:
+        print(f"Warning: smart chunker failed: {e}. Falling back to create_chunks.")
+        chunks = create_chunks(pages=pages, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
     print(f"Created {len(chunks)} chunks.")
 
     rows = [
