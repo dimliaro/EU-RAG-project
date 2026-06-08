@@ -15,6 +15,16 @@ Bundle commands:
 """
 
 import os
+import sys
+import glob
+
+# Databricks runs spark_python_task via exec(), so __file__ is not set.
+# The bundle always deploys to /Workspace/Users/<user>/.bundle/<bundle>/<target>/files/
+# We glob for the src/ directory that contains the day_09 package.
+for _src in glob.glob("/Workspace/Users/*/.bundle/gdpr-rag-pipeline/*/files/src"):
+    if os.path.isdir(os.path.join(_src, "day_09")) and _src not in sys.path:
+        sys.path.insert(0, _src)
+        break
 
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 

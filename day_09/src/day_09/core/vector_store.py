@@ -26,11 +26,17 @@ class ChromaVectorStore:
         ids = [chunk["chunk_id"] for chunk in chunks]
         documents = [chunk["content"] for chunk in chunks]
 
+        # Pass every field except chunk_id and content as metadata so that
+        # regulation-specific fields (structure_type, number, regulation, …)
+        # survive into retrieval for citations and metadata filtering.
+        # ChromaDB only accepts str | int | float | bool — convert anything
+        # else (including None) to an empty string.
+        _skip = {"chunk_id", "content"}
         metadatas = [
             {
-                "source_file": chunk["source_file"],
-                "page_number": chunk["page_number"],
-                "chunk_index": chunk["chunk_index"],
+                k: (v if isinstance(v, (str, int, float, bool)) else "")
+                for k, v in chunk.items()
+                if k not in _skip
             }
             for chunk in chunks
         ]

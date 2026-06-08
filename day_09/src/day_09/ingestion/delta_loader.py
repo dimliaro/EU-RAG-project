@@ -29,10 +29,10 @@ def load_chunks_from_delta() -> list[dict]:
         chunks.append(
             {
                 "chunk_id":    str(row["chunk_id"]),
-                "source_file": str(row["document_id"]),
+                "source_file": str(row["source_file"]),
                 "page_number": int(row["page_number"]) if row["page_number"] is not None else 0,
-                "chunk_index": int(row["chunk_id"]),
-                "content":     str(row["chunk_text"]),
+                "chunk_index": int(row["chunk_index"]),
+                "content":     str(row["content"]),
             }
         )
 
