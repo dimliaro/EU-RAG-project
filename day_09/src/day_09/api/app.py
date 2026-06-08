@@ -8,7 +8,6 @@ Run:
 
 from contextlib import asynccontextmanager
 
-from databricks.sdk import WorkspaceClient
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -21,13 +20,15 @@ from day_09.config import (
     DATA_DIR,
     EMBEDDING_MODEL_NAME,
     TOP_K,
-    VECTOR_SEARCH_INDEX,
     VOLUME_FILE_PATH,
 )
 from day_09.core.embeddings import LocalEmbeddingModel
 from day_09.core.llm import AzureOpenAIChatLLM
 from day_09.core.rag_pipeline import RAGPipeline
 from day_09.core.vector_store import ChromaVectorStore
+from day_09.retrieval.databricks_retriever import (
+    DatabricksVectorSearchRetriever,
+)
 
 
 # Shared components
@@ -37,6 +38,7 @@ vector_store = ChromaVectorStore(
     collection_name=COLLECTION_NAME,
 )
 llm = AzureOpenAIChatLLM()
+databricks_retriever = DatabricksVectorSearchRetriever()
 
 rag = RAGPipeline(
     file_path=VOLUME_FILE_PATH,
@@ -159,36 +161,9 @@ def query(request: QueryRequest) -> QueryResponse:
 @app.post("/query-databricks", response_model=QueryResponse)
 def query_databricks(request: QueryRequest) -> QueryResponse:
     try:
-        client = WorkspaceClient()
-
-        results = client.vector_search_indexes.query_index(
-            index_name=VECTOR_SEARCH_INDEX,
-            columns=[
-                "chunk_id",
-                "content",
-                "source_file",
-                "page_number",
-                "chunk_index",
-            ],
-            query_text=request.question,
-            num_results=TOP_K,
+        retrieved_chunks = databricks_retriever.retrieve(
+            request.question
         )
-
-        retrieved_chunks = []
-
-        for row in results.result.data_array:
-            retrieved_chunks.append(
-                {
-                    "chunk_id": row[0],
-                    "content": row[1],
-                    "metadata": {
-                        "source_file": row[2],
-                        "page_number": row[3],
-                        "chunk_index": row[4],
-                    },
-                    "distance": None,
-                }
-            )
 
         context_blocks = []
 
