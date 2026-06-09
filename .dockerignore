@@ -1,0 +1,12 @@
+.git
+.DS_Store
+day_09/.venv
+day_09/.mypy_cache
+day_09/.databricks
+day_09/.env
+day_09/query_log.db
+day_09/query_log.db-shm
+day_09/query_log.db-wal
+day_09/src/day_09/chroma_db
+**/__pycache__
+**/*.pyc
