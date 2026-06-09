@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from day_09.ingestion.local_loader import extract_pages
+from day_09.core.chunking import create_chunks
+from day_09.core.smart_chunker import route_and_chunk
 from day_09.core.smart_chunker import route_and_chunk
 
 if TYPE_CHECKING:
@@ -57,6 +59,21 @@ class RAGPipeline:
         pages = extract_pages(str(self.file_path))
         print(f"Extracted {len(pages)} pages/sections.")
 
+        print("Creating chunks...")
+        try:
+            chunks = route_and_chunk(
+                pages=pages,
+                source_file=str(self.file_path),
+                chunk_size=self.chunk_size,
+                overlap=self.chunk_overlap,
+            )
+        except Exception as e:
+            print(f"Warning: smart chunker failed: {e}. Falling back to create_chunks.")
+            chunks = create_chunks(
+                pages=pages,
+                chunk_size=self.chunk_size,
+                overlap=self.chunk_overlap,
+            )
         print("Routing and chunking...")
         chunks = route_and_chunk(
             pages=pages,

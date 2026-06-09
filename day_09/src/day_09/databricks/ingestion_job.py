@@ -48,7 +48,7 @@ def main():
     df       = pd.DataFrame(all_chunks)
     spark_df = spark.createDataFrame(df)
 
-    table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_TABLE}_2"
+    table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_TABLE}"
     (
         spark_df.write
         .format("delta")
