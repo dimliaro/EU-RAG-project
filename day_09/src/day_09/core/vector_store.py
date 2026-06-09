@@ -1,11 +1,8 @@
 """
 Azure AI Search vector store.
 
-Required index schema (create once in Azure portal or via SDK):
-  - chunk_id      : Edm.String  (key, retrievable)
-  - chunk_text    : Edm.String  (retrievable, searchable)
-  - embedding     : Collection(Edm.Single)  (vector, dimensions match your embedding model)
-  - metadata_json : Edm.String  (retrievable)
+The index is created automatically on first run via create_if_not_exists().
+Schema: chunk_id (key), chunk_text, embedding (1536 dims).
 """
 
 from azure.core.credentials import AzureKeyCredential
@@ -15,11 +12,59 @@ from azure.search.documents.models import VectorizedQuery
 
 class AISearchVectorStore:
     def __init__(self, endpoint: str, api_key: str, index_name: str):
+        self.endpoint = endpoint
+        self.api_key = api_key
+        self.index_name = index_name
         self.client = SearchClient(
             endpoint=endpoint,
             index_name=index_name,
             credential=AzureKeyCredential(api_key),
         )
+
+    @classmethod
+    def create_if_not_exists(cls, endpoint: str, api_key: str, index_name: str, dimensions: int = 1536):
+        from azure.search.documents.indexes import SearchIndexClient
+        from azure.search.documents.indexes.models import (
+            HnswAlgorithmConfiguration,
+            SearchField,
+            SearchFieldDataType,
+            SearchIndex,
+            SearchableField,
+            SimpleField,
+            VectorSearch,
+            VectorSearchProfile,
+        )
+
+        idx_client = SearchIndexClient(endpoint, AzureKeyCredential(api_key))
+        existing = list(idx_client.list_index_names())
+
+        if index_name in existing:
+            print(f"Index '{index_name}' already exists.")
+            return
+
+        fields = [
+            SimpleField(name="chunk_id", type=SearchFieldDataType.String, key=True, retrievable=True),
+            SearchableField(name="chunk_text", type=SearchFieldDataType.String, retrievable=True),
+            SearchField(
+                name="embedding",
+                type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+                searchable=True,
+                vector_search_dimensions=dimensions,
+                vector_search_profile_name="default-profile",
+            ),
+        ]
+
+        vector_search = VectorSearch(
+            algorithms=[HnswAlgorithmConfiguration(name="default-algo")],
+            profiles=[VectorSearchProfile(name="default-profile", algorithm_configuration_name="default-algo")],
+        )
+
+        idx_client.create_index(SearchIndex(name=index_name, fields=fields, vector_search=vector_search))
+        print(f"Created index '{index_name}'.")
+
+    def count(self) -> int:
+        results = self.client.search("*", top=0, include_total_count=True)
+        return results.get_count() or 0
 
     def add_chunks(self, chunks: list[dict], embeddings: list[list[float]]):
         documents = [
@@ -27,14 +72,6 @@ class AISearchVectorStore:
                 "chunk_id": chunk["chunk_id"],
                 "chunk_text": chunk["content"],
                 "embedding": embedding,
-                "metadata_json": json.dumps(
-                    {
-                        k: v
-                        for k, v in chunk.items()
-                        if k not in {"chunk_id", "content"}
-                        and isinstance(v, (str, int, float, bool))
-                    }
-                ),
             }
             for chunk, embedding in zip(chunks, embeddings)
         ]

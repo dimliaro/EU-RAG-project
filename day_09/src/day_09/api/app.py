@@ -24,6 +24,9 @@ from day_09.config import (
     BASE_DIR,
     CHUNK_OVERLAP,
     CHUNK_SIZE,
+    DATA_DIR,
+    EMBEDDING_DIMENSION,
+    MAX_ARTICLE_CHARS,
     TOP_K,
     VOLUME_FILE_PATH,
 )
@@ -72,11 +75,53 @@ rag = RAGPipeline(
 )
 
 
+SUPPORTED = {".pdf", ".docx", ".txt", ".csv", ".html"}
+
+
+def _ingest_local_data_dir():
+    from day_09.core.chunking import create_chunks
+    from day_09.core.smart_chunker import route_and_chunk
+    from day_09.ingestion.local_loader import extract_pages
+
+    files = [f for f in DATA_DIR.iterdir() if f.suffix.lower() in SUPPORTED]
+    print(f"Found {len(files)} local files: {[f.name for f in files]}")
+
+    all_chunks = []
+    for f in files:
+        print(f"  Ingesting {f.name}...")
+        pages = extract_pages(str(f))
+        try:
+            chunks = route_and_chunk(
+                pages=pages,
+                source_file=str(f),
+                chunk_size=CHUNK_SIZE,
+                overlap=CHUNK_OVERLAP,
+                max_article_chars=MAX_ARTICLE_CHARS,
+            )
+        except Exception as e:
+            print(f"  Warning: smart chunker failed ({e}). Falling back.")
+            chunks = create_chunks(pages=pages, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
+        all_chunks.extend(chunks)
+        print(f"    -> {len(chunks)} chunks")
+
+    print(f"Embedding {len(all_chunks)} total chunks...")
+    texts = [c["content"] for c in all_chunks]
+    embeddings = embedding_model.embed_documents(texts)
+    vector_store.add_chunks(chunks=all_chunks, embeddings=embeddings)
+    print("Ingestion complete.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # AI Search index is persistent in Azure — no startup ingestion needed.
-    # To populate the index run: uv run python -m day_09.ingestion.ingest
-    print("AI Search vector store ready.")
+    AISearchVectorStore.create_if_not_exists(
+        AI_SEARCH_ENDPOINT, AI_SEARCH_API_KEY, AI_SEARCH_INDEX_NAME,
+        dimensions=EMBEDDING_DIMENSION,
+    )
+    if vector_store.count() == 0:
+        print("Index is empty — ingesting local data...")
+        _ingest_local_data_dir()
+    else:
+        print(f"Index '{AI_SEARCH_INDEX_NAME}' ready.")
     yield
 
 

@@ -20,6 +20,7 @@ AI_SEARCH_INDEX_NAME = os.getenv("AI_SEARCH_INDEX_NAME", "eu-regulations")
 
 # Embedding deployment used for both indexing and querying
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
+EMBEDDING_DIMENSION = 1536  # text-embedding-3-small / ada-002 output size
 
 COLLECTION_NAME      = "pdf_rag_collection"  # kept for reference; no longer used
 
