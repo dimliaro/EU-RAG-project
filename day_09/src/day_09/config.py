@@ -17,10 +17,16 @@ PDF_PATH    = BASE_DIR / "data" / "32016R0679_EN.pdf"
 AI_SEARCH_ENDPOINT   = os.getenv("AI_SEARCH_ENDPOINT")
 AI_SEARCH_API_KEY    = os.getenv("AI_SEARCH_API_KEY")
 AI_SEARCH_INDEX_NAME = os.getenv("AI_SEARCH_INDEX_NAME", "eu-regulations")
+RESET_AI_SEARCH_INDEX = os.getenv("RESET_AI_SEARCH_INDEX", "false").lower() == "true"
 
 # Embedding deployment used for both indexing and querying
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
-EMBEDDING_DIMENSION = 1536  # text-embedding-3-small / ada-002 output size
+AZURE_OPENAI_EMBEDDING_DIMENSION = int(
+    os.getenv("AZURE_OPENAI_EMBEDDING_DIMENSION", "1536")
+)
+
+# Backward-compatible alias for the primary Azure retrieval backend.
+EMBEDDING_DIMENSION = AZURE_OPENAI_EMBEDDING_DIMENSION
 
 COLLECTION_NAME      = "pdf_rag_collection"  # kept for reference; no longer used
 
@@ -47,7 +53,9 @@ DELTA_ENRICHED_TABLE = os.getenv("DELTA_ENRICHED_TABLE", "eu_chunks_enriched")
 
 # Databricks Foundation Model API embedding endpoint + output dimension
 EMBEDDING_ENDPOINT  = os.getenv("EMBEDDING_ENDPOINT", "databricks-gte-large-en")
-EMBEDDING_DIMENSION = 1024  # databricks-gte-large-en output size
+DATABRICKS_EMBEDDING_DIMENSION = int(
+    os.getenv("DATABRICKS_EMBEDDING_DIMENSION", "1024")
+)
 
 # ── Databricks — Vector Search ────────────────────────────────────────────────
 VECTOR_SEARCH_ENDPOINT = os.getenv("VECTOR_SEARCH_ENDPOINT", "rag-endpoint")

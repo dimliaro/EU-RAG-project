@@ -7,6 +7,7 @@ Run:
 """
 
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,14 +20,16 @@ from day_09.config import (
     AI_SEARCH_INDEX_NAME,
     AZURE_OPENAI_API_KEY,
     AZURE_OPENAI_API_VERSION,
+    AZURE_OPENAI_DEPLOYMENT_NAME,
     AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+    AZURE_OPENAI_EMBEDDING_DIMENSION,
     AZURE_OPENAI_ENDPOINT,
     BASE_DIR,
     CHUNK_OVERLAP,
     CHUNK_SIZE,
     DATA_DIR,
-    EMBEDDING_DIMENSION,
     MAX_ARTICLE_CHARS,
+    RESET_AI_SEARCH_INDEX,
     TOP_K,
     VOLUME_FILE_PATH,
 )
@@ -35,12 +38,42 @@ from day_09.core.llm import AzureOpenAIChatLLM
 from day_09.core.query_logger import get_query_logger
 from day_09.core.rag_pipeline import RAGPipeline
 from day_09.core.vector_store import AISearchVectorStore
-from day_09.retrieval.databricks_retriever import (
-    DatabricksVectorSearchRetriever,
-)
+
+
+def _validate_azure_environment() -> None:
+    required = {
+        "AI_SEARCH_ENDPOINT": AI_SEARCH_ENDPOINT,
+        "AI_SEARCH_API_KEY": AI_SEARCH_API_KEY,
+        "AI_SEARCH_INDEX_NAME": AI_SEARCH_INDEX_NAME,
+        "AZURE_OPENAI_ENDPOINT": AZURE_OPENAI_ENDPOINT,
+        "AZURE_OPENAI_API_KEY": AZURE_OPENAI_API_KEY,
+        "AZURE_OPENAI_API_VERSION": AZURE_OPENAI_API_VERSION,
+        "AZURE_OPENAI_DEPLOYMENT_NAME": AZURE_OPENAI_DEPLOYMENT_NAME,
+        "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise ValueError(
+            "Azure AI Search / Azure OpenAI configuration is incomplete. "
+            "Missing environment variables: " + ", ".join(missing)
+        )
+
+
+def _has_databricks_environment() -> bool:
+    has_host_token = bool(os.getenv("DATABRICKS_HOST") and os.getenv("DATABRICKS_TOKEN"))
+    has_profile = bool(os.getenv("DATABRICKS_CONFIG_PROFILE"))
+    return has_host_token or has_profile
 
 
 # Shared components
+_validate_azure_environment()
+
+print("Retrieval backend: Azure AI Search")
+print(f"Azure AI Search index: {AI_SEARCH_INDEX_NAME}")
+print(f"Azure embedding deployment: {AZURE_OPENAI_EMBEDDING_DEPLOYMENT}")
+print(f"Azure embedding dimension: {AZURE_OPENAI_EMBEDDING_DIMENSION}")
+print("Databricks Vector Search is lazy and not required for /query startup.")
+
 embedding_model = AzureOpenAIEmbeddingModel(
     endpoint=AZURE_OPENAI_ENDPOINT,
     api_key=AZURE_OPENAI_API_KEY,
@@ -53,12 +86,8 @@ vector_store = AISearchVectorStore(
     index_name=AI_SEARCH_INDEX_NAME,
 )
 llm = AzureOpenAIChatLLM()
-try:
-    databricks_retriever = DatabricksVectorSearchRetriever()
-except Exception:
-    databricks_retriever = None
 
-# Query audit logger — completely separate from the Chroma vector store.
+# Query audit logger — completely separate from the retrieval vector store.
 # It records questions + answers + retrieval metadata.
 # It never feeds back into retrieval.
 query_logger = get_query_logger()
@@ -78,12 +107,21 @@ rag = RAGPipeline(
 SUPPORTED = {".pdf", ".docx", ".txt", ".csv", ".html"}
 
 
+def _is_evaluation_file(path) -> bool:
+    return path.name == "evaluation_questions.csv" or path.name.startswith("evaluation_")
+
+
 def _ingest_local_data_dir():
     from day_09.core.chunking import create_chunks
     from day_09.core.smart_chunker import route_and_chunk
     from day_09.ingestion.local_loader import extract_pages
 
-    files = [f for f in DATA_DIR.iterdir() if f.suffix.lower() in SUPPORTED]
+    candidates = [f for f in DATA_DIR.iterdir() if f.suffix.lower() in SUPPORTED]
+    skipped = [f for f in candidates if _is_evaluation_file(f)]
+    files = [f for f in candidates if not _is_evaluation_file(f)]
+
+    if skipped:
+        print(f"Skipped evaluation files: {[f.name for f in skipped]}")
     print(f"Found {len(files)} local files: {[f.name for f in files]}")
 
     all_chunks = []
@@ -104,6 +142,7 @@ def _ingest_local_data_dir():
         all_chunks.extend(chunks)
         print(f"    -> {len(chunks)} chunks")
 
+    print(f"Files ingested: {len(files)}")
     print(f"Embedding {len(all_chunks)} total chunks...")
     texts = [c["content"] for c in all_chunks]
     embeddings = embedding_model.embed_documents(texts)
@@ -113,9 +152,17 @@ def _ingest_local_data_dir():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if RESET_AI_SEARCH_INDEX:
+        print("RESET_AI_SEARCH_INDEX=true: deleting and recreating Azure AI Search index")
+        AISearchVectorStore.delete_if_exists(
+            AI_SEARCH_ENDPOINT,
+            AI_SEARCH_API_KEY,
+            AI_SEARCH_INDEX_NAME,
+        )
+
     AISearchVectorStore.create_if_not_exists(
         AI_SEARCH_ENDPOINT, AI_SEARCH_API_KEY, AI_SEARCH_INDEX_NAME,
-        dimensions=EMBEDDING_DIMENSION,
+        dimensions=AZURE_OPENAI_EMBEDDING_DIMENSION,
     )
     if vector_store.count() == 0:
         print("Index is empty — ingesting local data...")
@@ -167,9 +214,33 @@ def query(request: QueryRequest) -> QueryResponse:
 
 @app.post("/query-databricks", response_model=QueryResponse)
 def query_databricks(request: QueryRequest) -> QueryResponse:
-    if databricks_retriever is None:
-        raise HTTPException(status_code=503, detail="Databricks not configured.")
     try:
+        if not _has_databricks_environment():
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Databricks Vector Search is not configured. "
+                    "Set DATABRICKS_HOST and DATABRICKS_TOKEN, or "
+                    "DATABRICKS_CONFIG_PROFILE, before calling /query-databricks."
+                ),
+            )
+
+        try:
+            from day_09.retrieval.databricks_retriever import (
+                DatabricksVectorSearchRetriever,
+            )
+
+            databricks_retriever = DatabricksVectorSearchRetriever()
+        except Exception as e:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Databricks Vector Search is not configured. "
+                    "Set Databricks credentials before calling /query-databricks. "
+                    f"Original error: {e}"
+                ),
+            ) from e
+
         retrieved_chunks = databricks_retriever.retrieve(
             request.question
         )
@@ -215,5 +286,7 @@ def query_databricks(request: QueryRequest) -> QueryResponse:
             retrieved_chunks=retrieved_chunks,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
