@@ -3,6 +3,7 @@ import argparse
 from day_09.ingestion.auto.pipeline import AutoIngestionPipeline
 from day_09.ingestion.auto.registry import available_sources
 from day_09.ingestion.auto.sources.eurlex import EurLexSource
+from day_09.ingestion.auto.storage.volume_writer import VolumeWriter
 
 
 def main() -> None:
@@ -10,12 +11,24 @@ def main() -> None:
     parser.add_argument("--source", default="eurlex", choices=available_sources())
     parser.add_argument("--query")
     parser.add_argument("--celex", nargs="+")
+    parser.add_argument("--local-file")
+    parser.add_argument("--volume-dir")
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--manifest", default="data/auto_ingestion_manifest.json")
     args = parser.parse_args()
 
+    if args.local_file:
+        if not args.volume_dir:
+            parser.error("--volume-dir is required when --local-file is provided.")
+
+        writer = VolumeWriter(target_volume_dir=args.volume_dir)
+        volume_path = writer.write_file(local_path=args.local_file)
+        print(f"Uploaded: {args.local_file}")
+        print(f"Volume path: {volume_path}")
+        return
+
     if not args.query and not args.celex:
-        parser.error("Provide either --query or --celex.")
+        parser.error("Provide --query, --celex, or --local-file.")
 
     if args.celex:
         if args.source != "eurlex":
