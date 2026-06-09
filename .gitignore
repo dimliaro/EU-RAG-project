@@ -11,6 +11,13 @@ build/
 
 # Vector store (generated, rebuild locally)
 **/chroma_db/
+.chroma/
+
+# Runtime databases and archives
+query_log.db
+query_log.db-shm
+query_log.db-wal
+*.zip
 
 # Environment variables
 .env
