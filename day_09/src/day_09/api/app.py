@@ -50,7 +50,10 @@ vector_store = AISearchVectorStore(
     index_name=AI_SEARCH_INDEX_NAME,
 )
 llm = AzureOpenAIChatLLM()
-databricks_retriever = DatabricksVectorSearchRetriever()
+try:
+    databricks_retriever = DatabricksVectorSearchRetriever()
+except Exception:
+    databricks_retriever = None
 
 # Query audit logger — completely separate from the Chroma vector store.
 # It records questions + answers + retrieval metadata.
@@ -119,6 +122,8 @@ def query(request: QueryRequest) -> QueryResponse:
 
 @app.post("/query-databricks", response_model=QueryResponse)
 def query_databricks(request: QueryRequest) -> QueryResponse:
+    if databricks_retriever is None:
+        raise HTTPException(status_code=503, detail="Databricks not configured.")
     try:
         retrieved_chunks = databricks_retriever.retrieve(
             request.question
