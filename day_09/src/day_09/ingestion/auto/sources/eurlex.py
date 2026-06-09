@@ -50,7 +50,8 @@ class EurLexSource(DocumentSource):
 
     name = "eurlex"
     base_search_url = "https://eur-lex.europa.eu/search.html"
-    base_document_url = "https://eur-lex.europa.eu/legal-content/EN/TXT/"
+    base_txt_url = "https://eur-lex.europa.eu/legal-content/EN/TXT/"
+    base_pdf_url = "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/"
     user_agent = "EU-RAG-auto-ingestion/0.1"
     known_celex_titles = {
         "32016R0679": "GDPR",
@@ -70,7 +71,13 @@ class EurLexSource(DocumentSource):
         return f"{self.base_search_url}?{urlencode(params)}"
 
     def build_document_url(self, celex_id: str) -> str:
-        return f"{self.base_document_url}?{urlencode({'uri': f'CELEX:{celex_id}'})}"
+        return self.build_txt_url(celex_id)
+
+    def build_txt_url(self, celex_id: str) -> str:
+        return f"{self.base_txt_url}?{urlencode({'uri': f'CELEX:{celex_id}'})}"
+
+    def build_pdf_url(self, celex_id: str) -> str:
+        return f"{self.base_pdf_url}?{urlencode({'uri': f'CELEX:{celex_id}'})}"
 
     def discover_celex(self, celex_ids: list[str], limit: int | None = None) -> list[DiscoveredDocument]:
         documents: list[DiscoveredDocument] = []
@@ -81,24 +88,27 @@ class EurLexSource(DocumentSource):
                 continue
 
             title = self.known_celex_titles.get(celex_id, celex_id)
-            document_url = self.build_document_url(celex_id)
+            txt_url = self.build_txt_url(celex_id)
+            pdf_url = self.build_pdf_url(celex_id)
             metadata = DocumentMetadata(
                 source=self.name,
                 title=title,
-                url=document_url,
+                url=txt_url,
                 document_type="eurlex-document",
                 institution="EUR-Lex",
                 identifier=celex_id,
                 extra={
                     "celex_id": celex_id,
                     "discovery_method": "celex_direct",
+                    "txt_url": txt_url,
+                    "pdf_url": pdf_url,
                 },
             )
 
             documents.append(
                 DiscoveredDocument(
                     metadata=metadata,
-                    download_url=document_url,
+                    download_url=txt_url,
                 )
             )
 
