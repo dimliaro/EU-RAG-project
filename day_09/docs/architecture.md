@@ -1,18 +1,15 @@
 # EU RAG Databricks Architecture
 
-This document describes the active Databricks assets used by the EU RAG project.
-The physical table and index names are intentionally kept as they are for now, to
-avoid breaking ingestion, evaluation, or API code while the pipeline is still
-evolving.
+This document describes the current active Databricks architecture used by the
+EU RAG project. The physical table and index names are intentionally kept as
+they are for now, to avoid breaking ingestion, evaluation, API code, or Vector
+Search dependencies while the pipeline is still evolving.
 
-## Current Naming Policy
+## Active Flow
 
-Do not rename the live Databricks tables or Vector Search indexes during the
-active ingestion and retrieval work.
-
-Renaming should be done later as an organized team refactor, after all code,
-notebooks, bundle configuration, and Vector Search dependencies have been
-audited together.
+```text
+Bronze/Silver Hybrid -> Gold -> Vector Search Index -> Retrieval
+```
 
 ## Logical Layers
 
@@ -23,15 +20,14 @@ audited together.
 | `team6_panos_index` | Vector Search Index | Databricks Delta Sync Vector Search index built from `team6_panos_index_ready`. |
 | `team6_panos_vs` | Vector Search / Retrieval Layer | Retrieval asset used by the RAG pipeline. |
 
-The current active architecture is:
+## Current Naming Policy
 
-```text
-Bronze/Silver Hybrid -> Gold -> Vector Search Index -> Retrieval
-```
+Do not rename the live Databricks tables or Vector Search indexes during the
+active ingestion and retrieval work.
 
-Separate Silver tables such as `eu_chunks` or `eu_chunks_enriched` may be
-introduced in a future refactor, but they are not part of the active pipeline
-today.
+Renaming should be done later as an organized team refactor, after all code,
+notebooks, bundle configuration, and Vector Search dependencies have been
+audited together.
 
 ## Current Code References
 
@@ -48,6 +44,16 @@ The bundle job writes table names from bundle variables:
 |---|---|
 | `databricks.yml` | Passes `catalog`, `schema`, and `table` variables into `spark_ingester.py`. |
 | `src/day_09/databricks/spark_ingester.py` | Writes the configured Delta table and its `_index_ready` source table. |
+
+## Legacy And Future Notes
+
+Older documentation may mention separate tables such as `eu_chunks` or
+`eu_chunks_enriched`, or older local-only ingestion paths. Those are not part of
+the active Databricks architecture described here.
+
+Separate Silver tables may be introduced in a future refactor if the team wants
+to split raw extraction, normalized chunks, enriched metadata, and index-ready
+records into distinct physical tables.
 
 ## Future Rename Plan
 
