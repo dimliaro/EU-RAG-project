@@ -10,9 +10,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from day_09.config import (
+    BASE_DIR,
     CHROMA_PATH,
     CHUNK_OVERLAP,
     CHUNK_SIZE,
@@ -146,11 +148,7 @@ class QueryResponse(BaseModel):
 
 @app.get("/")
 def root():
-    return {
-        "message": "EU RAG API is running",
-        "docs": "/docs",
-        "endpoints": ["/query", "/query-databricks"],
-    }
+    return FileResponse(BASE_DIR / "frontend" / "rag.html")
 
 
 @app.post("/query", response_model=QueryResponse)
