@@ -19,36 +19,49 @@ targets:
 resources:
   jobs:
 
-    # ── Job 1: raw file from Volume → Delta table of chunks ───────────────────
+    # Job 1: raw files from Volume -> Delta table of chunks.
     ingest_chunks:
       name: "[dev] ingest_chunks_to_delta"
       tasks:
         - task_key: ingest
           spark_python_task:
             python_file: src/day_09/databricks/spark_ingester.py
-          environment_key: serverless
+            parameters:
+              - --catalog
+              - ${var.catalog}
+              - --schema
+              - ${var.schema}
+              - --table
+              - ${var.table}
+          environment_key: default
       environments:
-        - environment_key: serverless
+        - environment_key: default
           spec:
-            client: "1"
+            environment_version: "2"
             dependencies:
-              - pymupdf>=1.27.2.3
               - beautifulsoup4>=4.12.0
+              - databricks-sdk>=0.20.0
+              - pymupdf>=1.27.2.3
               - python-docx>=1.1.0
+              - python-dotenv>=1.0.0
 
-    # ── Job 2: chunks Delta table → enriched table with embedding column ──────
-    #    Run AFTER ingest_chunks. Output feeds the Vector Search index.
+    # Job 2: chunks Delta table -> enriched table with embedding column.
+    # Run AFTER ingest_chunks. Output feeds the Vector Search index.
     enrich_chunks:
       name: "[dev] enrich_chunks_with_embeddings"
       tasks:
         - task_key: enrich
           spark_python_task:
             python_file: src/day_09/databricks/enrichment_job.py
-          environment_key: serverless
+          environment_key: default
       environments:
-        - environment_key: serverless
+        - environment_key: default
           spec:
-            client: "1"
+            environment_version: "2"
             dependencies:
-              - pymupdf>=1.27.2.3
+              - beautifulsoup4>=4.12.0
+              - databricks-sdk>=0.20.0
               - mlflow
+              - pymupdf>=1.27.2.3
+              - python-docx>=1.1.0
+              - python-dotenv>=1.0.0

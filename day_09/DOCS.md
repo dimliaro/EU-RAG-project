@@ -218,6 +218,35 @@ Open `src/frontend/rag.html` in your browser. The API endpoint field defaults to
 
 ---
 
+### `POST /query-databricks`
+
+Ask a question against the Databricks Vector Search index.
+
+This endpoint retrieves relevant regulatory chunks from Databricks Vector Search and sends them as context to the LLM.
+
+**Request**
+
+```json
+{
+  "question": "What does GDPR say about personal data?"
+}
+{
+  "question": "What does GDPR say about personal data?",
+  "answer": "The GDPR defines personal data as any information relating to an identified or identifiable natural person...",
+  "retrieved_chunks": [
+    {
+      "chunk_id": "32016R0679_EN_207",
+      "content": "...",
+      "metadata": {
+        "source_file": "32016R0679_EN",
+        "page_number": 33,
+        "chunk_index": 207
+      },
+      "distance": null
+    }
+  ]
+}
+
 ### `POST /query`
 
 Ask a question against the ingested documents.
@@ -347,6 +376,7 @@ VOLUME_FILE_PATH=/Volumes/accenture2026dbcks/team6/volume/pdfs/32016R0679_EN.pdf
 | Chunk files from Volume → Delta table | ✅ | `all_type_ingestion.py` |
 | Read chunks from Delta at startup | ✅ | `all_type_loader.py` |
 | Databricks credentials in `.env` | ⬜ | Add `DATABRICKS_HOST` + `DATABRICKS_TOKEN` |
-| Replace ChromaDB → Databricks Vector Search | ⬜ | `databricks_retriever.py` is ready |
+|| Replace ChromaDB → Databricks Vector Search | ✅ | Implemented through `/query-databricks` endpoint |
+| FastAPI Databricks Vector Search endpoint | ✅ | `POST /query-databricks` |
 | Replace local embeddings → Databricks Foundation Model API | ⬜ | Swap `LocalEmbeddingModel` in `embeddings.py` |
 | Replace Azure OpenAI → Databricks-hosted LLM | ⬜ | Optional |
