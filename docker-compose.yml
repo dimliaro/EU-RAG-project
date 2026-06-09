@@ -6,10 +6,6 @@ services:
     env_file:
       - ./day_09/.env
     volumes:
-      - chroma_data:/app/src/day_09/chroma_db
       - ./day_09/query_log.db:/app/query_log.db
       - ./day_09/data:/app/data
     restart: unless-stopped
-
-volumes:
-  chroma_data:

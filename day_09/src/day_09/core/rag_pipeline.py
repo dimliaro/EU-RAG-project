@@ -2,7 +2,7 @@
 Orchestrates the full RAG pipeline in two modes:
 
 LOCAL mode  (ingest / ask)
-  file → extract → chunk → ChromaDB → LLM
+  file → extract → chunk → vector store → LLM
 
 DATABRICKS mode  (ingest_databricks / ask_databricks)
   URL/file → fetch → upload to Volume → [bundle job runs spark_ingester]
@@ -51,7 +51,7 @@ class RAGPipeline:
     # ── Local pipeline ────────────────────────────────────────────────────────
 
     def ingest(self):
-        """Local ingestion: file → extract → route_and_chunk → embed → ChromaDB."""
+        """Local ingestion: file → extract → route_and_chunk → embed → vector store."""
         from day_09.config import MAX_ARTICLE_CHARS
 
         print("Reading file...")
@@ -80,13 +80,17 @@ class RAGPipeline:
         texts = [chunk["content"] for chunk in chunks]
         embeddings = self.embedding_model.embed_documents(texts)
 
-        print("Saving to Chroma...")
+        print("Saving to vector store...")
         self.vector_store.add_chunks(chunks=chunks, embeddings=embeddings)
         print("Ingestion completed.")
 
     def retrieve(self, question: str) -> list[dict]:
         query_embedding = self.embedding_model.embed_query(question)
-        return self.vector_store.search(query_embedding=query_embedding, top_k=self.top_k)
+        return self.vector_store.search(
+            query_embedding=query_embedding,
+            top_k=self.top_k,
+            query_text=question,
+        )
 
     def build_context(self, retrieved_chunks: list[dict]) -> str:
         blocks = []
