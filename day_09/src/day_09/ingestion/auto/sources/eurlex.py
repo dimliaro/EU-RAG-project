@@ -1,26 +1,111 @@
-from urllib.parse import urlencode
+from html.parser import HTMLParser
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse
+from urllib.request import Request, urlopen
 
 from day_09.ingestion.auto.models import DiscoveredDocument, DocumentMetadata
 from day_09.ingestion.auto.sources.base import DocumentSource
 
 
-class EurLexSource(DocumentSource):
-    """EUR-Lex discovery skeleton.
+class _ResultLinkParser(HTMLParser):
+    def __init__(self, base_url: str):
+        super().__init__()
+        self.base_url = base_url
+        self.links: list[tuple[str, str]] = []
+        self._active_href: str | None = None
+        self._active_text: list[str] = []
 
-    This first real iteration does not scrape search results yet. It returns a
-    discovered search descriptor containing the source, original query, and the
-    generated EUR-Lex search URL.
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "a":
+            return
+
+        href = dict(attrs).get("href")
+        if href and self._is_result_href(href):
+            self._active_href = urljoin(self.base_url, href)
+            self._active_text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._active_href:
+            self._active_text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag != "a" or not self._active_href:
+            return
+
+        title = " ".join(" ".join(self._active_text).split())
+        self.links.append((self._active_href, title))
+        self._active_href = None
+        self._active_text = []
+
+    @staticmethod
+    def _is_result_href(href: str) -> bool:
+        return "/legal-content/" in href and "uri=" in href
+
+
+class EurLexSource(DocumentSource):
+    """EUR-Lex search-result discovery.
+
+    This fetches the EUR-Lex search results page and extracts legal-content
+    result URLs. It does not download PDFs or parse document pages yet.
     """
 
     name = "eurlex"
     base_search_url = "https://eur-lex.europa.eu/search.html"
+    base_document_url = "https://eur-lex.europa.eu/legal-content/EN/TXT/"
+    user_agent = "EU-RAG-auto-ingestion/0.1"
+    known_celex_titles = {
+        "32016R0679": "GDPR",
+        "32022R2554": "DORA",
+        "32024R1689": "AI Act",
+        "32014L0065": "MiFID II",
+        "32013L0036": "CRD IV",
+    }
 
     def build_search_url(self, query: str) -> str:
         params = {
+            "lang": "en",
             "scope": "EURLEX",
             "text": query,
+            "type": "quick",
         }
         return f"{self.base_search_url}?{urlencode(params)}"
+
+    def build_document_url(self, celex_id: str) -> str:
+        return f"{self.base_document_url}?{urlencode({'uri': f'CELEX:{celex_id}'})}"
+
+    def discover_celex(self, celex_ids: list[str], limit: int | None = None) -> list[DiscoveredDocument]:
+        documents: list[DiscoveredDocument] = []
+
+        for raw_celex_id in celex_ids:
+            celex_id = raw_celex_id.strip().upper()
+            if not celex_id:
+                continue
+
+            title = self.known_celex_titles.get(celex_id, celex_id)
+            document_url = self.build_document_url(celex_id)
+            metadata = DocumentMetadata(
+                source=self.name,
+                title=title,
+                url=document_url,
+                document_type="eurlex-document",
+                institution="EUR-Lex",
+                identifier=celex_id,
+                extra={
+                    "celex_id": celex_id,
+                    "discovery_method": "celex_direct",
+                },
+            )
+
+            documents.append(
+                DiscoveredDocument(
+                    metadata=metadata,
+                    download_url=document_url,
+                )
+            )
+
+            if limit is not None and len(documents) >= limit:
+                break
+
+        return documents
 
     def discover(self, query: str, limit: int = 10) -> list[DiscoveredDocument]:
         normalized_query = query.strip()
@@ -28,22 +113,77 @@ class EurLexSource(DocumentSource):
             return []
 
         search_url = self.build_search_url(normalized_query)
-        metadata = DocumentMetadata(
-            source=self.name,
-            title=f"EUR-Lex search: {normalized_query}",
-            url=search_url,
-            document_type="search",
-            institution="EUR-Lex",
-            identifier=f"eurlex-search:{normalized_query.lower()}",
-            extra={
-                "query": normalized_query,
-                "search_url": search_url,
+        html = self._fetch_search_results(search_url)
+        result_links = self._extract_result_links(html=html, search_url=search_url)
+
+        documents: list[DiscoveredDocument] = []
+        seen: set[str] = set()
+
+        for result_url, title in result_links:
+            if result_url in seen:
+                continue
+            seen.add(result_url)
+
+            identifier = self._identifier_from_url(result_url)
+            metadata = DocumentMetadata(
+                source=self.name,
+                title=title or result_url,
+                url=result_url,
+                document_type="eurlex-result",
+                institution="EUR-Lex",
+                identifier=identifier or result_url,
+                extra={
+                    "query": normalized_query,
+                    "search_url": search_url,
+                },
+            )
+
+            documents.append(
+                DiscoveredDocument(
+                    metadata=metadata,
+                    download_url=result_url,
+                )
+            )
+
+            if len(documents) >= limit:
+                break
+
+        return documents
+
+    def _fetch_search_results(self, search_url: str) -> str:
+        request = Request(
+            search_url,
+            headers={
+                "User-Agent": self.user_agent,
+                "Accept": "text/html,application/xhtml+xml",
             },
         )
+        with urlopen(request, timeout=30) as response:
+            content_type = response.headers.get_content_charset() or "utf-8"
+            html = response.read().decode(content_type, errors="replace")
 
-        return [
-            DiscoveredDocument(
-                metadata=metadata,
-                download_url=search_url,
+        if "AwsWafIntegration" in html or "challenge-container" in html:
+            raise RuntimeError(
+                "EUR-Lex returned an automated-access challenge instead of search results."
             )
-        ][:limit]
+
+        return html
+
+    @staticmethod
+    def _extract_result_links(html: str, search_url: str) -> list[tuple[str, str]]:
+        parser = _ResultLinkParser(base_url=search_url)
+        parser.feed(html)
+        return parser.links
+
+    @staticmethod
+    def _identifier_from_url(result_url: str) -> str:
+        parsed = urlparse(result_url)
+        query = parse_qs(parsed.query)
+        uri_values = query.get("uri", [])
+        if not uri_values:
+            return ""
+
+        uri = uri_values[0]
+        if ":" in uri:
+            return uri.rsplit(":", 1)[-1]
+        return uri
