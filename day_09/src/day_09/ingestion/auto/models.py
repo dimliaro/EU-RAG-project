@@ -35,3 +35,12 @@ class IngestionResult:
     skipped_count: int
     documents: list[DiscoveredDocument]
 
+
+@dataclass(frozen=True)
+class CelexIngestionResult:
+    celex_id: str
+    title: str
+    local_path: Path
+    volume_path: str
+    source_url: str
+    pdf_url: str
