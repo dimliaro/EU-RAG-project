@@ -3,21 +3,22 @@ Databricks job file — runs as a spark_python_task inside the bundle.
 `spark` is injected by the Databricks runtime (intentionally unresolved locally).
 
 What this job does:
-  1. Reads raw chunks from the Delta table (eu_chunks)
+  1. Reads raw chunks from the Bronze Delta table (gdpr_bronze_chunks)
   2. Calls the Databricks Foundation Model API in batches to get embeddings
-  3. Writes the enriched table (eu_chunks_enriched) with an `embedding` column
+  3. Writes the Silver table (gdpr_silver_enriched_chunks) with an `embedding` column
 
 This enriched table is what Databricks Vector Search syncs from.
 
 Pipeline:
-  spark_ingester  →  eu_chunks  →  [this job]  →  eu_chunks_enriched
+  spark_ingester  →  gdpr_bronze_chunks  →  [this job]  →  gdpr_silver_enriched_chunks
                                                            ↓
                                                Vector Search index (auto-sync)
 
 Bundle command:
-    databricks bundle run enrich_chunks
+    databricks bundle run enrich_gdpr_chunks
 """
 
+import argparse
 import os
 import sys
 import glob
@@ -33,14 +34,6 @@ for _src in glob.glob("/Workspace/Users/*/.bundle/gdpr-rag-pipeline/*/files/src"
 import pandas as pd
 from pyspark.sql.functions import col, pandas_udf
 from pyspark.sql.types import ArrayType, FloatType
-
-from day_09.config import (
-    DELTA_CATALOG,
-    DELTA_ENRICHED_TABLE,
-    DELTA_SCHEMA,
-    DELTA_TABLE,
-    EMBEDDING_ENDPOINT,
-)
 
 BATCH_SIZE = 25  # Databricks Foundation Model API limit per request
 
@@ -59,7 +52,7 @@ def _embed(texts: pd.Series) -> pd.Series:
     for i in range(0, len(texts), BATCH_SIZE):
         batch = texts.iloc[i : i + BATCH_SIZE].tolist()
         response = client.predict(
-            endpoint=EMBEDDING_ENDPOINT,
+            endpoint=os.getenv("EMBEDDING_ENDPOINT", "databricks-gte-large-en"),
             inputs={"input": batch},
         )
         for item in response["data"]:
@@ -69,8 +62,34 @@ def _embed(texts: pd.Series) -> pd.Series:
 
 
 def main():
-    source_table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_TABLE}"
-    target_table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_ENRICHED_TABLE}"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--catalog")
+    parser.add_argument("--schema")
+    parser.add_argument("--bronze-table")
+    parser.add_argument("--silver-table")
+    args = parser.parse_args()
+
+    if args.catalog:
+        os.environ["DELTA_CATALOG"] = args.catalog
+    if args.schema:
+        os.environ["DELTA_SCHEMA"] = args.schema
+    if args.bronze_table:
+        os.environ["DELTA_BRONZE_TABLE"] = args.bronze_table
+        os.environ["DELTA_TABLE"] = args.bronze_table
+    if args.silver_table:
+        os.environ["DELTA_SILVER_TABLE"] = args.silver_table
+        os.environ["DELTA_ENRICHED_TABLE"] = args.silver_table
+
+    from day_09.config import (
+        DELTA_BRONZE_TABLE,
+        DELTA_CATALOG,
+        DELTA_SCHEMA,
+        DELTA_SILVER_TABLE,
+        EMBEDDING_ENDPOINT,
+    )
+
+    source_table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_BRONZE_TABLE}"
+    target_table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_SILVER_TABLE}"
 
     print(f"Reading chunks from: {source_table}")
     df = spark.table(source_table)  # noqa: F821 — spark injected by Databricks

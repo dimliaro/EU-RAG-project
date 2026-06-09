@@ -64,14 +64,14 @@ EUR-Lex.
 ```bash
 uv run python -m day_09.ingestion.auto.cli \
   --local-file demo_documents/32016R0679_GDPR.pdf \
-  --volume-dir /Volumes/accenture2026dbcks/team6/volume/pdfs
+  --volume-dir /Volumes/accenture2026dbcks/team6/raw_documents/pdfs
 ```
 
 Expected output shape:
 
 ```text
 Uploaded: demo_documents/32016R0679_GDPR.pdf
-Volume path: /Volumes/accenture2026dbcks/team6/volume/pdfs/32016R0679_GDPR.pdf
+Volume path: /Volumes/accenture2026dbcks/team6/raw_documents/pdfs/32016R0679_GDPR.pdf
 ```
 
 ### Online CELEX Download And Upload
@@ -84,7 +84,7 @@ from day_09.ingestion.auto.pipeline import AutoIngestionPipeline
 pipeline = AutoIngestionPipeline()
 result = pipeline.ingest_celex_pdf(
     celex_id="32016R0679",
-    target_volume_dir="/Volumes/accenture2026dbcks/team6/volume/pdfs",
+    target_volume_dir="/Volumes/accenture2026dbcks/team6/raw_documents/pdfs",
     overwrite=False,
 )
 
@@ -111,10 +111,11 @@ upload mode.
 cached/online PDF
 -> Databricks Volume
 -> spark_ingester.py
--> team6_panos
--> team6_panos_index_ready
+-> gdpr_bronze_chunks
+-> gdpr_silver_enriched_chunks
+-> gdpr_gold_index_ready
 -> Vector Search sync
--> team6_panos_index
+-> gdpr_vector_index
 -> RAG retrieval
 ```
 
@@ -122,7 +123,8 @@ cached/online PDF
 
 | Asset | Role |
 |---|---|
-| `team6_panos` | Main Delta table containing ingested and chunked document content. |
-| `team6_panos_index_ready` | Index-ready source table for Vector Search. |
-| `team6_panos_index` | Databricks Delta Sync Vector Search index. |
-| `team6_panos_vs` | Logical retrieval layer used by the RAG application. |
+| `gdpr_bronze_chunks` | Bronze Delta table containing ingested and chunked document content. |
+| `gdpr_silver_enriched_chunks` | Silver Delta table containing enriched chunks and embeddings. |
+| `gdpr_gold_index_ready` | Gold index-ready source table for Vector Search. |
+| `gdpr_vector_index` | Databricks Delta Sync Vector Search index. |
+| `gdpr_rag_query_logs` | Planned RAG query/audit log table. |

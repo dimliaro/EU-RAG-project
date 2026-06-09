@@ -1,12 +1,12 @@
 from databricks.sdk import WorkspaceClient
 
-from day_09.config import TOP_K
+from day_09.config import TOP_K, VECTOR_SEARCH_INDEX
 
 
 class DatabricksVectorSearchRetriever:
     def __init__(
         self,
-        index_name: str = "accenture2026dbcks.team6.team6_panos_index",
+        index_name: str = VECTOR_SEARCH_INDEX,
         top_k: int = TOP_K,
     ):
         self.index_name = index_name

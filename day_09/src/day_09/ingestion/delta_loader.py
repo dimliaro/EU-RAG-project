@@ -6,7 +6,7 @@ Called once on API startup (if ChromaDB is empty) to populate the local vector s
 """
 
 from databricks.connect import DatabricksSession
-from day_09.config import DELTA_CATALOG, DELTA_SCHEMA, DELTA_TABLE
+from day_09.config import DELTA_BRONZE_TABLE, DELTA_CATALOG, DELTA_SCHEMA
 
 
 def load_chunks_from_delta() -> list[dict]:
@@ -19,7 +19,7 @@ def load_chunks_from_delta() -> list[dict]:
     """
     spark = DatabricksSession.builder.serverless(True).getOrCreate()
 
-    table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_TABLE}"
+    table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_BRONZE_TABLE}"
     df = spark.sql(f"SELECT * FROM {table}")
 
     rows = df.collect()
