@@ -15,13 +15,17 @@ class HTTPDownloader:
         document: DiscoveredDocument,
         destination: Path | str,
         timeout: int = 30,
+        expected_content_type: str | None = None,
     ) -> DownloadedDocument:
         destination_path = Path(destination)
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
         request = Request(
             document.download_url,
-            headers={"User-Agent": self.user_agent},
+            headers={
+                "User-Agent": self.user_agent,
+                "Accept": expected_content_type or "*/*",
+            },
         )
 
         try:
@@ -30,6 +34,15 @@ class HTTPDownloader:
                 content_type = response.headers.get("Content-Type", "")
         except (HTTPError, URLError) as exc:
             raise RuntimeError(f"Failed to download {document.download_url}: {exc}") from exc
+
+        if not content:
+            raise RuntimeError(f"Downloaded empty response from {document.download_url}")
+
+        if expected_content_type and expected_content_type not in content_type:
+            raise RuntimeError(
+                f"Expected {expected_content_type} from {document.download_url}, "
+                f"got {content_type or 'unknown content type'}"
+            )
 
         destination_path.write_bytes(content)
         checksum = sha256(content).hexdigest()
@@ -40,4 +53,3 @@ class HTTPDownloader:
             checksum=checksum,
             content_type=content_type,
         )
-
