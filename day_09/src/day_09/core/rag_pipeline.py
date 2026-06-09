@@ -9,9 +9,21 @@ DATABRICKS mode  (ingest_databricks / ask_databricks)
            → Vector Search → LLM → results written to Delta table
 """
 
+from __future__ import annotations
+
+import time
+import uuid
+import warnings
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
 from day_09.ingestion.local_loader import extract_pages
 from day_09.core.chunking import create_chunks
 from day_09.core.smart_chunker import route_and_chunk
+from day_09.core.smart_chunker import route_and_chunk
+
+if TYPE_CHECKING:
+    from day_09.core.query_logger import QueryLogger
 
 
 class RAGPipeline:
@@ -25,6 +37,7 @@ class RAGPipeline:
         chunk_overlap: int,
         top_k: int,
         delta_target: str | None = None,
+        logger: QueryLogger | None = None,
     ):
         self.file_path = file_path
         self.embedding_model = embedding_model
@@ -34,14 +47,17 @@ class RAGPipeline:
         self.chunk_overlap = chunk_overlap
         self.top_k = top_k
         self.delta_target = delta_target
+        self.logger = logger  # QueryLogger | None — audit log, NOT the vector store
 
     # ── Local pipeline ────────────────────────────────────────────────────────
 
     def ingest(self):
-        """Local ingestion: file → extract → chunk → embed → ChromaDB."""
+        """Local ingestion: file → extract → route_and_chunk → embed → ChromaDB."""
+        from day_09.config import MAX_ARTICLE_CHARS
+
         print("Reading file...")
         pages = extract_pages(str(self.file_path))
-        print(f"Extracted {len(pages)} chunks.")
+        print(f"Extracted {len(pages)} pages/sections.")
 
         print("Creating chunks...")
         try:
@@ -58,6 +74,14 @@ class RAGPipeline:
                 chunk_size=self.chunk_size,
                 overlap=self.chunk_overlap,
             )
+        print("Routing and chunking...")
+        chunks = route_and_chunk(
+            pages=pages,
+            source_file=str(self.file_path),
+            chunk_size=self.chunk_size,
+            overlap=self.chunk_overlap,
+            max_article_chars=MAX_ARTICLE_CHARS,
+        )
         print(f"Created {len(chunks)} chunks.")
 
         print("Creating embeddings...")
@@ -76,17 +100,73 @@ class RAGPipeline:
         blocks = []
         for item in retrieved_chunks:
             meta = item["metadata"]
-            blocks.append(
-                f"Source: {meta['source_file']}\n"
-                f"Page: {meta['page_number']}  Chunk: {meta['chunk_index']}\n\n"
-                f"{item['content']}"
-            )
+            structure_type = meta.get("structure_type", "")
+            number         = meta.get("number", "")
+            regulation     = meta.get("regulation", "")
+            chapter        = meta.get("chapter", "")
+            title          = meta.get("title", "")
+
+            # Build a header line that the LLM can use for citations
+            if structure_type == "article":
+                label = f"[ARTICLE {number}{(' — ' + title) if title else ''}]"
+                if chapter:
+                    label += f"  {chapter}"
+                if regulation:
+                    label += f"  ({regulation})"
+            elif structure_type == "recital":
+                label = f"[RECITAL {number}]"
+                if regulation:
+                    label += f"  ({regulation})"
+            else:
+                label = f"Source: {meta.get('source_file', '')}"
+
+            blocks.append(f"{label}\n\n{item['content']}")
         return "\n---\n".join(blocks)
 
     def ask(self, question: str) -> dict:
+        # Time the full retrieve + generate cycle for the audit record.
+        t0 = time.monotonic()
         retrieved = self.retrieve(question)
-        context = self.build_context(retrieved)
-        answer = self.llm.generate(question=question, context=context)
+        context   = self.build_context(retrieved)
+        answer    = self.llm.generate(question=question, context=context)
+        latency_ms = int((time.monotonic() - t0) * 1000)
+
+        # ── Audit log (side effect — must not alter the return value) ──────────
+        if self.logger is not None:
+            try:
+                from day_09.config import AZURE_OPENAI_DEPLOYMENT_NAME
+                record = {
+                    "id":         str(uuid.uuid4()),
+                    "timestamp":  datetime.now(timezone.utc).isoformat(),
+                    "query":      question,
+                    "answer":     answer,
+                    "model":      AZURE_OPENAI_DEPLOYMENT_NAME or "unknown",
+                    "k":          self.top_k,
+                    "filters":    None,
+                    "latency_ms": latency_ms,
+                    # retrieved carries the audit trail — which specific articles/
+                    # recitals grounded this answer — but NOTHING writes this back
+                    # into the vector store.
+                    "retrieved": [
+                        {
+                            "chunk_id":       r["chunk_id"],
+                            "structure_type": r["metadata"].get("structure_type", ""),
+                            "number":         r["metadata"].get("number", 0),
+                            "regulation":     r["metadata"].get("regulation", ""),
+                            "score":          r["distance"],
+                        }
+                        for r in retrieved
+                    ],
+                }
+                self.logger.log(record)
+            except Exception as exc:
+                # Logging must never crash the pipeline — warn and continue.
+                warnings.warn(
+                    f"QueryLogger.log() failed — audit record lost: {exc}",
+                    stacklevel=2,
+                )
+        # ──────────────────────────────────────────────────────────────────────
+
         return {"question": question, "answer": answer, "retrieved_chunks": retrieved}
 
     # ── Databricks pipeline ───────────────────────────────────────────────────
