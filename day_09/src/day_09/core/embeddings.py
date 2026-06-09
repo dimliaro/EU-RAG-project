@@ -1,39 +1,29 @@
 """
-Local embedding model using SentenceTransformer.
-
-In a Databricks environment, replace this class with calls to the
-Databricks Foundation Model API or Azure OpenAI embeddings.
+Azure OpenAI embedding model.
 """
 
-from sentence_transformers import SentenceTransformer
+from openai import AzureOpenAI
 
 
-class LocalEmbeddingModel:
-    """
-    Local embedding model.
+class AzureOpenAIEmbeddingModel:
 
-    Later in Databricks, replace this class with:
-    - ai_query('databricks-gte-large-en', content)
-    - Databricks Foundation Model API
-    - Azure OpenAI embeddings
-    """
-
-    def __init__(self, model_name: str):
-        self.model = SentenceTransformer(model_name)
+    def __init__(self, endpoint: str, api_key: str, api_version: str, deployment: str):
+        self.client = AzureOpenAI(
+            azure_endpoint=endpoint,
+            api_key=api_key,
+            api_version=api_version,
+        )
+        self.deployment = deployment
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        embeddings = self.model.encode(
-            texts,
-            normalize_embeddings=True,
-            show_progress_bar=True,
-        )
-
-        return embeddings.tolist()
+        embeddings = []
+        # Azure caps batch size — process in chunks of 100
+        for i in range(0, len(texts), 100):
+            batch = texts[i : i + 100]
+            response = self.client.embeddings.create(model=self.deployment, input=batch)
+            embeddings.extend(item.embedding for item in response.data)
+        return embeddings
 
     def embed_query(self, text: str) -> list[float]:
-        embedding = self.model.encode(
-            text,
-            normalize_embeddings=True,
-        )
-
-        return embedding.tolist()
+        response = self.client.embeddings.create(model=self.deployment, input=text)
+        return response.data[0].embedding

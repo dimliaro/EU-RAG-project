@@ -1,74 +1,66 @@
 """
-Local Chroma vector database.
+Azure AI Search vector store.
 
-Later in Databricks, replace this class with:
-- Databricks VectorSearchClient
-- Databricks AI Search index
+Required index schema (create once in Azure portal or via SDK):
+  - chunk_id      : Edm.String  (key, retrievable)
+  - chunk_text    : Edm.String  (retrievable, searchable)
+  - embedding     : Collection(Edm.Single)  (vector, dimensions match your embedding model)
+  - metadata_json : Edm.String  (retrievable)
 """
 
-import chromadb
-from chromadb.config import Settings
+from azure.core.credentials import AzureKeyCredential
+from azure.search.documents import SearchClient
+from azure.search.documents.models import VectorizedQuery
 
 
-class ChromaVectorStore:
-    def __init__(self, persist_path: str, collection_name: str):
-        self.client = chromadb.PersistentClient(
-            path=str(persist_path),
-            settings=Settings(anonymized_telemetry=False),
-        )
-
-        self.collection = self.client.get_or_create_collection(
-            name=collection_name,
-            metadata={"hnsw:space": "cosine"},
+class AISearchVectorStore:
+    def __init__(self, endpoint: str, api_key: str, index_name: str):
+        self.client = SearchClient(
+            endpoint=endpoint,
+            index_name=index_name,
+            credential=AzureKeyCredential(api_key),
         )
 
     def add_chunks(self, chunks: list[dict], embeddings: list[list[float]]):
-        ids = [chunk["chunk_id"] for chunk in chunks]
-        documents = [chunk["content"] for chunk in chunks]
-
-        # Pass every field except chunk_id and content as metadata so that
-        # regulation-specific fields (structure_type, number, regulation, …)
-        # survive into retrieval for citations and metadata filtering.
-        # ChromaDB only accepts str | int | float | bool — convert anything
-        # else (including None) to an empty string.
-        _skip = {"chunk_id", "content"}
-        metadatas = [
+        documents = [
             {
-                k: (v if isinstance(v, (str, int, float, bool)) else "")
-                for k, v in chunk.items()
-                if k not in _skip
+                "chunk_id": chunk["chunk_id"],
+                "chunk_text": chunk["content"],
+                "embedding": embedding,
+                "metadata_json": json.dumps(
+                    {
+                        k: v
+                        for k, v in chunk.items()
+                        if k not in {"chunk_id", "content"}
+                        and isinstance(v, (str, int, float, bool))
+                    }
+                ),
             }
-            for chunk in chunks
+            for chunk, embedding in zip(chunks, embeddings)
         ]
+        self.client.upload_documents(documents=documents)
 
-        self.collection.upsert(
-            ids=ids,
-            documents=documents,
-            embeddings=embeddings,
-            metadatas=metadatas,
-        )
-
-    def search(self, query_embedding: list[float], top_k: int = 5) -> list[dict[str, str | int | float]]:
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
+    def search(self, query_embedding: list[float], top_k: int = 5) -> list[dict]:
+        results = self.client.search(
+            search_text=None,
+            vector_queries=[
+                VectorizedQuery(
+                    vector=query_embedding,
+                    k_nearest_neighbors=top_k,
+                    fields="embedding",
+                )
+            ],
+            select=["chunk_id", "chunk_text"],
         )
 
         retrieved = []
-
-        ids = results["ids"][0]
-        documents = results["documents"][0]
-        metadatas = results["metadatas"][0]
-        distances = results["distances"][0]
-
-        for i in range(len(ids)):
+        for row in results:
             retrieved.append(
                 {
-                    "chunk_id": ids[i],
-                    "content": documents[i],
-                    "metadata": metadatas[i],
-                    "distance": distances[i],
+                    "chunk_id": row["chunk_id"],
+                    "content": row["chunk_text"],
+                    "metadata": {},
+                    "distance": row.get("@search.score", 0.0),
                 }
             )
-
         return retrieved

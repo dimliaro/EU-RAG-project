@@ -13,10 +13,15 @@ BASE_DIR = _HERE.parent.parent                 # .../day_09/ project root
 # ── Local paths ──────────────────────────────────────────────────────────────
 DATA_DIR    = BASE_DIR / "data"
 PDF_PATH    = BASE_DIR / "data" / "32016R0679_EN.pdf"
-CHROMA_PATH = _HERE / "chroma_db"
+# ── Azure AI Search ───────────────────────────────────────────────────────────
+AI_SEARCH_ENDPOINT   = os.getenv("AI_SEARCH_ENDPOINT")
+AI_SEARCH_API_KEY    = os.getenv("AI_SEARCH_API_KEY")
+AI_SEARCH_INDEX_NAME = os.getenv("AI_SEARCH_INDEX_NAME", "eu-regulations")
 
-COLLECTION_NAME      = "pdf_rag_collection"
-EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+# Embedding deployment used for both indexing and querying
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
+
+COLLECTION_NAME      = "pdf_rag_collection"  # kept for reference; no longer used
 
 CHUNK_SIZE        = 500
 CHUNK_OVERLAP     = 80

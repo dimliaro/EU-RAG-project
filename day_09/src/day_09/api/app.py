@@ -14,32 +14,40 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from day_09.config import (
+    AI_SEARCH_API_KEY,
+    AI_SEARCH_ENDPOINT,
+    AI_SEARCH_INDEX_NAME,
+    AZURE_OPENAI_API_KEY,
+    AZURE_OPENAI_API_VERSION,
+    AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+    AZURE_OPENAI_ENDPOINT,
     BASE_DIR,
-    CHROMA_PATH,
     CHUNK_OVERLAP,
     CHUNK_SIZE,
-    COLLECTION_NAME,
-    DATA_DIR,
-    EMBEDDING_MODEL_NAME,
-    MAX_ARTICLE_CHARS,
     TOP_K,
     VOLUME_FILE_PATH,
 )
-from day_09.core.embeddings import LocalEmbeddingModel
+from day_09.core.embeddings import AzureOpenAIEmbeddingModel
 from day_09.core.llm import AzureOpenAIChatLLM
 from day_09.core.query_logger import get_query_logger
 from day_09.core.rag_pipeline import RAGPipeline
-from day_09.core.vector_store import ChromaVectorStore
+from day_09.core.vector_store import AISearchVectorStore
 from day_09.retrieval.databricks_retriever import (
     DatabricksVectorSearchRetriever,
 )
 
 
 # Shared components
-embedding_model = LocalEmbeddingModel(model_name=EMBEDDING_MODEL_NAME)
-vector_store = ChromaVectorStore(
-    persist_path=CHROMA_PATH,
-    collection_name=COLLECTION_NAME,
+embedding_model = AzureOpenAIEmbeddingModel(
+    endpoint=AZURE_OPENAI_ENDPOINT,
+    api_key=AZURE_OPENAI_API_KEY,
+    api_version=AZURE_OPENAI_API_VERSION,
+    deployment=AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+)
+vector_store = AISearchVectorStore(
+    endpoint=AI_SEARCH_ENDPOINT,
+    api_key=AI_SEARCH_API_KEY,
+    index_name=AI_SEARCH_INDEX_NAME,
 )
 llm = AzureOpenAIChatLLM()
 databricks_retriever = DatabricksVectorSearchRetriever()
@@ -61,77 +69,11 @@ rag = RAGPipeline(
 )
 
 
-SUPPORTED = {".pdf", ".docx", ".txt", ".csv", ".html"}
-
-
-def _ingest_local_data_dir():
-    from day_09.core.chunking import create_chunks
-    from day_09.core.smart_chunker import route_and_chunk
-    from day_09.ingestion.local_loader import extract_pages
-
-    files = [f for f in DATA_DIR.iterdir() if f.suffix.lower() in SUPPORTED]
-    print(f"Found {len(files)} local files: {[f.name for f in files]}")
-
-    all_chunks = []
-
-    for f in files:
-        print(f"  Ingesting {f.name}...")
-        pages = extract_pages(str(f))
-        try:
-            chunks = route_and_chunk(
-                pages=pages,
-                source_file=str(f),
-                chunk_size=CHUNK_SIZE,
-                overlap=CHUNK_OVERLAP,
-                max_article_chars=MAX_ARTICLE_CHARS,
-            )
-        except Exception as e:
-            print(f"Warning: smart chunker failed for {f.name}: {e}. Falling back to create_chunks.")
-            chunks = create_chunks(
-                pages=pages,
-                chunk_size=CHUNK_SIZE,
-                overlap=CHUNK_OVERLAP,
-            )
-        all_chunks.extend(chunks)
-        print(f"    -> {len(chunks)} chunks")
-
-    print(f"Embedding {len(all_chunks)} total chunks...")
-    texts = [c["content"] for c in all_chunks]
-    embeddings = embedding_model.embed_documents(texts)
-    vector_store.add_chunks(chunks=all_chunks, embeddings=embeddings)
-    print("Local ingestion complete.")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if vector_store.collection.count() == 0:
-        print("ChromaDB is empty -- loading chunks from Databricks Delta table...")
-
-        try:
-            from day_09.ingestion.delta_loader import load_chunks_from_delta
-
-            chunks = load_chunks_from_delta()
-            texts = [c["content"] for c in chunks]
-
-            print(f"Embedding {len(chunks)} chunks...")
-            embeddings = embedding_model.embed_documents(texts)
-
-            vector_store.add_chunks(chunks=chunks, embeddings=embeddings)
-            print("ChromaDB populated. Ready to serve queries.")
-
-        except Exception as e:
-            print(
-                f"Warning: could not load from Databricks ({e}). "
-                "Falling back to local ingestion."
-            )
-            _ingest_local_data_dir()
-
-    else:
-        print(
-            f"ChromaDB already has {vector_store.collection.count()} chunks. "
-            "Skipping ingestion."
-        )
-
+    # AI Search index is persistent in Azure — no startup ingestion needed.
+    # To populate the index run: uv run python -m day_09.ingestion.ingest
+    print("AI Search vector store ready.")
     yield
 
 
