@@ -1,8 +1,11 @@
 from html.parser import HTMLParser
+from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 
+from day_09.ingestion.auto.downloaders.http_downloader import HTTPDownloader
 from day_09.ingestion.auto.models import DiscoveredDocument, DocumentMetadata
+from day_09.ingestion.auto.models import DownloadedDocument
 from day_09.ingestion.auto.sources.base import DocumentSource
 
 
@@ -116,6 +119,50 @@ class EurLexSource(DocumentSource):
                 break
 
         return documents
+
+    def download_celex_pdf(
+        self,
+        celex_id: str,
+        download_dir: Path | str | None = None,
+    ) -> DownloadedDocument:
+        document = self._build_celex_pdf_document(celex_id)
+        destination_dir = (
+            Path(download_dir)
+            if download_dir is not None
+            else Path(__file__).resolve().parents[1] / "tmp" / "eurlex"
+        )
+        destination = destination_dir / f"{document.metadata.identifier}.pdf"
+
+        downloader = HTTPDownloader(user_agent=self.user_agent)
+        return downloader.download(
+            document=document,
+            destination=destination,
+            expected_content_type="application/pdf",
+        )
+
+    def _build_celex_pdf_document(self, celex_id: str) -> DiscoveredDocument:
+        normalized_celex_id = celex_id.strip().upper()
+        title = self.known_celex_titles.get(normalized_celex_id, normalized_celex_id)
+        txt_url = self.build_txt_url(normalized_celex_id)
+        pdf_url = self.build_pdf_url(normalized_celex_id)
+        metadata = DocumentMetadata(
+            source=self.name,
+            title=title,
+            url=txt_url,
+            document_type="eurlex-pdf",
+            institution="EUR-Lex",
+            identifier=normalized_celex_id,
+            extra={
+                "celex_id": normalized_celex_id,
+                "discovery_method": "celex_direct",
+                "txt_url": txt_url,
+                "pdf_url": pdf_url,
+            },
+        )
+        return DiscoveredDocument(
+            metadata=metadata,
+            download_url=pdf_url,
+        )
 
     def discover(self, query: str, limit: int = 10) -> list[DiscoveredDocument]:
         normalized_query = query.strip()
