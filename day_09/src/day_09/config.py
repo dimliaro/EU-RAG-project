@@ -18,6 +18,7 @@ AI_SEARCH_ENDPOINT   = os.getenv("AI_SEARCH_ENDPOINT")
 AI_SEARCH_API_KEY    = os.getenv("AI_SEARCH_API_KEY")
 AI_SEARCH_INDEX_NAME = os.getenv("AI_SEARCH_INDEX_NAME", "eu-regulations")
 RESET_AI_SEARCH_INDEX = os.getenv("RESET_AI_SEARCH_INDEX", "false").lower() == "true"
+AI_SEARCH_UPLOAD_BATCH_SIZE = int(os.getenv("AI_SEARCH_UPLOAD_BATCH_SIZE", "100"))
 
 # Embedding deployment used for both indexing and querying
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
