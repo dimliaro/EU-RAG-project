@@ -6,10 +6,12 @@ variables:
     default: accenture2026dbcks
   schema:
     default: team6
-  table:
-    default: eu_chunks
-  enriched_table:
-    default: eu_chunks_enriched
+  bronze_table:
+    default: gdpr_bronze_chunks
+  silver_table:
+    default: gdpr_silver_enriched_chunks
+  gold_table:
+    default: gdpr_gold_index_ready
 
 targets:
   dev:
@@ -19,9 +21,9 @@ targets:
 resources:
   jobs:
 
-    # Job 1: raw files from Volume -> Delta table of chunks.
-    ingest_chunks:
-      name: "[dev] ingest_chunks_to_delta"
+    # Job 1: raw files from Volume -> Bronze chunks + Gold index-ready table.
+    ingest_gdpr_chunks:
+      name: "[dev] ingest_gdpr_bronze_chunks"
       tasks:
         - task_key: ingest
           spark_python_task:
@@ -31,9 +33,13 @@ resources:
               - ${var.catalog}
               - --schema
               - ${var.schema}
-              - --table
-              - ${var.table}
+              - --bronze-table
+              - ${var.bronze_table}
+              - --gold-table
+              - ${var.gold_table}
           environment_key: default
+          max_retries: 2
+          min_retry_interval_millis: 60000
       environments:
         - environment_key: default
           spec:
@@ -45,15 +51,26 @@ resources:
               - python-docx>=1.1.0
               - python-dotenv>=1.0.0
 
-    # Job 2: chunks Delta table -> enriched table with embedding column.
-    # Run AFTER ingest_chunks. Output feeds the Vector Search index.
-    enrich_chunks:
-      name: "[dev] enrich_chunks_with_embeddings"
+    # Job 2: Bronze chunks -> Silver enriched chunks with embedding column.
+    # Run AFTER ingest_gdpr_chunks. Output feeds Vector Search setup.
+    enrich_gdpr_chunks:
+      name: "[dev] enrich_gdpr_silver_chunks"
       tasks:
         - task_key: enrich
           spark_python_task:
             python_file: src/day_09/databricks/enrichment_job.py
+            parameters:
+              - --catalog
+              - ${var.catalog}
+              - --schema
+              - ${var.schema}
+              - --bronze-table
+              - ${var.bronze_table}
+              - --silver-table
+              - ${var.silver_table}
           environment_key: default
+          max_retries: 2
+          min_retry_interval_millis: 60000
       environments:
         - environment_key: default
           spec:

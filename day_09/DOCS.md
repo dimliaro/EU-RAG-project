@@ -29,7 +29,7 @@ all_type_chunker.chunk_file()    ← reads bytes from Volume, splits into chunks
 all_type_ingestion.py            ← writes chunks to Delta table via DatabricksConnect
          │
          ▼
-accenture2026dbcks.team6.eu_chunks  (Delta table on Databricks)
+accenture2026dbcks.team6.gdpr_bronze_chunks  (Delta table on Databricks)
 ```
 
 ### Local fallback ingestion (when Databricks is unreachable)
@@ -150,7 +150,7 @@ Open `src/frontend/rag.html` in your browser. The API endpoint field defaults to
 | `TOP_K` | `5` | Chunks returned per query |
 | `DELTA_CATALOG` | `accenture2026dbcks` | Databricks catalog |
 | `DELTA_SCHEMA` | `team6` | Databricks schema |
-| `DELTA_TABLE` | `eu_chunks` | Delta table for chunks |
+| `DELTA_TABLE` | `gdpr_bronze_chunks` | Delta table for chunks |
 | `VOLUME_FILE_PATH` | `/Volumes/.../pdfs/32016R0679_EN.pdf` | Volume file path |
 
 #### `all_type_chunker.py`
@@ -363,7 +363,7 @@ DATABRICKS_TOKEN=dapiXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # Optional overrides
 DELTA_CATALOG=accenture2026dbcks
 DELTA_SCHEMA=team6
-DELTA_TABLE=eu_chunks
+DELTA_BRONZE_TABLE=gdpr_bronze_chunks
 VOLUME_FILE_PATH=/Volumes/accenture2026dbcks/team6/volume/pdfs/32016R0679_EN.pdf
 ```
 

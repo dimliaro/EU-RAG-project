@@ -8,20 +8,20 @@ Run once — from your local machine with DatabricksConnect, or as a notebook:
 What it creates:
   - Vector Search endpoint  (VECTOR_SEARCH_ENDPOINT)
   - Delta Sync index        (VECTOR_SEARCH_INDEX)
-      source : eu_chunks_enriched  (must exist — run enrich_chunks bundle job first)
+      source : gdpr_silver_enriched_chunks  (must exist after enrichment)
       key    : chunk_id
       vector : embedding column (pre-computed by enrichment_job.py)
 
-After this runs, the index auto-syncs whenever eu_chunks_enriched changes.
+After this runs, the index can sync whenever gdpr_silver_enriched_chunks changes.
 """
 
 from databricks.vector_search.client import VectorSearchClient
 
 from day_09.config import (
+    DATABRICKS_EMBEDDING_DIMENSION,
     DELTA_CATALOG,
-    DELTA_ENRICHED_TABLE,
     DELTA_SCHEMA,
-    EMBEDDING_DIMENSION,
+    DELTA_SILVER_TABLE,
     VECTOR_SEARCH_ENDPOINT,
     VECTOR_SEARCH_INDEX,
 )
@@ -45,7 +45,7 @@ def _create_index_if_missing(vsc: VectorSearchClient) -> None:
     except Exception:
         pass  # does not exist yet
 
-    source_table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_ENRICHED_TABLE}"
+    source_table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_SILVER_TABLE}"
     print(f"  Creating Delta Sync index on '{source_table}'...")
 
     # pipeline_type="TRIGGERED" means you manually call .sync() to refresh.
@@ -56,7 +56,7 @@ def _create_index_if_missing(vsc: VectorSearchClient) -> None:
         source_table_name=source_table,
         pipeline_type="TRIGGERED",
         primary_key="chunk_id",
-        embedding_dimension=EMBEDDING_DIMENSION,
+        embedding_dimension=DATABRICKS_EMBEDDING_DIMENSION,
         embedding_vector_column="embedding",  # pre-computed column from enrichment_job.py
     )
     print(f"  Index '{VECTOR_SEARCH_INDEX}' created and initial sync started.")

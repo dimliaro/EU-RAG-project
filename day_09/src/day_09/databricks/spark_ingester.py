@@ -6,12 +6,12 @@ What this job does:
   1. Reads the raw file directly from a Unity Catalog Volume path
   2. Extracts text (PDF, DOCX, TXT, CSV, HTML)
   3. Creates paragraph-aware chunks
-  4. Writes chunks to a Delta table in Unity Catalog
+  4. Writes chunks to Bronze and Gold Delta tables in Unity Catalog
 
 Bundle commands:
     databricks bundle validate
     databricks bundle deploy
-    databricks bundle run ingest_chunks
+    databricks bundle run ingest_gdpr_chunks
 """
 
 import argparse
@@ -96,22 +96,29 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--catalog")
     parser.add_argument("--schema")
-    parser.add_argument("--table")
+    parser.add_argument("--table", help="Deprecated alias for --bronze-table")
+    parser.add_argument("--bronze-table")
+    parser.add_argument("--gold-table")
     args = parser.parse_args()
 
     if args.catalog:
         os.environ["DELTA_CATALOG"] = args.catalog
     if args.schema:
         os.environ["DELTA_SCHEMA"] = args.schema
-    if args.table:
-        os.environ["DELTA_TABLE"] = args.table
+    bronze_table = args.bronze_table or args.table
+    if bronze_table:
+        os.environ["DELTA_BRONZE_TABLE"] = bronze_table
+        os.environ["DELTA_TABLE"] = bronze_table
+    if args.gold_table:
+        os.environ["DELTA_GOLD_TABLE"] = args.gold_table
 
     from day_09.config import (
         CHUNK_OVERLAP,
         CHUNK_SIZE,
+        DELTA_BRONZE_TABLE,
         DELTA_CATALOG,
+        DELTA_GOLD_TABLE,
         DELTA_SCHEMA,
-        DELTA_TABLE,
         VOLUME_FILE_PATH,
     )
 
@@ -158,7 +165,7 @@ def main():
 
     df = spark.createDataFrame(rows, schema=CHUNKS_SCHEMA)  # noqa: F821 — spark injected by Databricks
 
-    table_name = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_TABLE}"
+    table_name = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_BRONZE_TABLE}"
     (
         df.write.format("delta")
         .mode("overwrite")
@@ -182,7 +189,7 @@ def main():
     ]
 
     index_df = spark.createDataFrame(index_rows, schema=INDEX_READY_SCHEMA)  # noqa: F821
-    index_table_name = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_TABLE}_index_ready"
+    index_table_name = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_GOLD_TABLE}"
     (
         index_df.write.format("delta")
         .mode("overwrite")

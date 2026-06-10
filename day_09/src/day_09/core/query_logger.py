@@ -245,7 +245,7 @@ class DatabricksQueryLogger(QueryLogger):
                )
     """
 
-    def __init__(self, catalog: str, schema: str, table: str = "query_log"):
+    def __init__(self, catalog: str, schema: str, table: str):
         # TODO: store coordinates; initialise WorkspaceClient or SparkSession
         self._table = f"{catalog}.{schema}.{table}"
         raise NotImplementedError(
@@ -284,8 +284,12 @@ def get_query_logger() -> QueryLogger:
         return SqliteQueryLogger(db_path=QUERY_LOG_DB)
 
     if LOG_BACKEND == "databricks":
-        from day_09.config import DELTA_CATALOG, DELTA_SCHEMA
-        return DatabricksQueryLogger(catalog=DELTA_CATALOG, schema=DELTA_SCHEMA)
+        from day_09.config import DELTA_CATALOG, DELTA_RESULTS_TABLE, DELTA_SCHEMA
+        return DatabricksQueryLogger(
+            catalog=DELTA_CATALOG,
+            schema=DELTA_SCHEMA,
+            table=DELTA_RESULTS_TABLE,
+        )
 
     raise ValueError(
         f"Unknown LOG_BACKEND {LOG_BACKEND!r}. "

@@ -13,9 +13,9 @@ import pandas as pd
 from pathlib import Path
 
 from day_09.databricks.chunker import chunk_file
-from day_09.config import DELTA_CATALOG, DELTA_SCHEMA, DELTA_TABLE
+from day_09.config import DELTA_BRONZE_TABLE, DELTA_CATALOG, DELTA_SCHEMA, RAW_PDF_VOLUME_DIR
 
-VOLUME_DIR = f"/Volumes/{DELTA_CATALOG}/team6/volume/pdfs"
+VOLUME_DIR = RAW_PDF_VOLUME_DIR
 SUPPORTED  = {".pdf", ".csv", ".docx", ".txt"}
 
 
@@ -48,7 +48,7 @@ def main():
     df       = pd.DataFrame(all_chunks)
     spark_df = spark.createDataFrame(df)
 
-    table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_TABLE}"
+    table = f"{DELTA_CATALOG}.{DELTA_SCHEMA}.{DELTA_BRONZE_TABLE}"
     (
         spark_df.write
         .format("delta")

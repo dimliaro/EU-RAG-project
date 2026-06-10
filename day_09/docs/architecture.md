@@ -1,78 +1,42 @@
 # EU RAG Databricks Architecture
 
-This document describes the current active Databricks architecture used by the
-EU RAG project. The physical table and index names are intentionally kept as
-they are for now, to avoid breaking ingestion, evaluation, API code, or Vector
-Search dependencies while the pipeline is still evolving.
+This document describes the current Databricks production architecture used by
+the EU RAG project.
 
 ## Active Flow
 
 ```text
-Bronze/Silver Hybrid -> Gold -> Vector Search Index -> Retrieval
+Raw PDF Volume -> Bronze -> Silver -> Gold -> Vector Search Index -> Retrieval
 ```
 
-## Logical Layers
+## Active Assets
 
 | Physical name | Logical layer | Purpose |
 |---|---|---|
-| `team6_panos` | Bronze/Silver Hybrid Layer | Main Delta table containing ingested and chunked document content. There is currently no separate physical Silver table. |
-| `team6_panos_index_ready` | Gold Layer | Index-ready table used as the source for Vector Search indexing. |
-| `team6_panos_index` | Vector Search Index | Databricks Delta Sync Vector Search index built from `team6_panos_index_ready`. |
-| `team6_panos_vs` | Vector Search / Retrieval Layer | Retrieval asset used by the RAG pipeline. |
+| `/Volumes/accenture2026dbcks/team6/volume/pdfs` | Raw PDF Volume | Stores official source PDFs before Spark ingestion. |
+| `accenture2026dbcks.team6.gdpr_bronze_chunks` | Bronze table | Stores ingested and smart-chunked document content. |
+| `accenture2026dbcks.team6.gdpr_silver_enriched_chunks` | Silver table | Stores enriched chunks, including Databricks embedding vectors. |
+| `accenture2026dbcks.team6.gdpr_gold_index_ready` | Gold table | Stores records shaped for Vector Search indexing. |
+| `accenture2026dbcks.team6.gdpr_vector_index` | Vector Search Index | Databricks Vector Search index used for retrieval. |
+| `accenture2026dbcks.team6.gdpr_rag_query_logs` | Query logs | Planned Delta table for RAG query/audit logging. |
 
-## Current Naming Policy
-
-Do not rename the live Databricks tables or Vector Search indexes during the
-active ingestion and retrieval work.
-
-Renaming should be done later as an organized team refactor, after all code,
-notebooks, bundle configuration, and Vector Search dependencies have been
-audited together.
-
-## Current Code References
-
-The current codebase references `team6_panos_index` directly in:
+## Code References
 
 | File | Usage |
 |---|---|
+| `src/day_09/config.py` | Central source for Databricks table, volume, and index names. |
+| `databricks.yml` | Databricks bundle job names, task parameters, and retry settings. |
+| `src/day_09/databricks/spark_ingester.py` | Reads PDFs from the raw Volume and writes Bronze/Gold tables. |
+| `src/day_09/databricks/enrichment_job.py` | Reads Bronze chunks and writes Silver enriched chunks. |
+| `src/day_09/databricks/vector_search_setup.py` | Creates the Databricks Vector Search endpoint/index. |
 | `src/day_09/retrieval/databricks_retriever.py` | Runtime retrieval for `/query-databricks`. |
-| `src/day_09/evaluation/evaluate_retrieval.py` | Retrieval evaluation script. |
+| `src/day_09/evaluation/evaluate_retrieval.py` | Retrieval evaluation against the configured Vector Search index. |
 
-The bundle job writes table names from bundle variables:
+## Setup
 
-| File | Usage |
-|---|---|
-| `databricks.yml` | Passes `catalog`, `schema`, and `table` variables into `spark_ingester.py`. |
-| `src/day_09/databricks/spark_ingester.py` | Writes the configured Delta table and its `_index_ready` source table. |
+The helper script `src/day_09/databricks/setup_databricks_assets.py` creates or
+documents the Unity Catalog schema, raw document Volume, Bronze/Silver/Gold
+tables, and query log table.
 
-## Legacy And Future Notes
-
-Older documentation may mention separate tables such as `eu_chunks` or
-`eu_chunks_enriched`, or older local-only ingestion paths. Those are not part of
-the active Databricks architecture described here.
-
-Separate Silver tables may be introduced in a future refactor if the team wants
-to split raw extraction, normalized chunks, enriched metadata, and index-ready
-records into distinct physical tables.
-
-## Future Rename Plan
-
-If the team later decides to rename the physical Databricks assets, do it in one
-coordinated change:
-
-1. Search the repo, notebooks, and Databricks jobs for all old names.
-2. Update Python, YAML, notebooks, evaluation scripts, API config, and Vector
-   Search dependencies together.
-3. Rename or recreate Databricks tables and indexes in the correct dependency
-   order.
-4. Re-run ingestion, Vector Search sync, and retrieval evaluation.
-
-Example SQL for a future table rename:
-
-```sql
-ALTER TABLE team6.team6_panos
-RENAME TO team6.team6_bronze_documents;
-```
-
-Avoid applying this until the team has agreed on the final naming convention and
-the full pipeline has stabilized.
+The Vector Search index still requires the Databricks Vector Search setup step
+after the source table exists.

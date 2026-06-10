@@ -21,8 +21,8 @@ Target public sources include:
 
 ```text
 Official source -> Document fetcher -> Databricks Volume -> Smart chunking
--> team6_panos -> team6_panos_index_ready -> Vector Search sync
--> team6_panos_index -> RAG retrieval
+-> gdpr_bronze_chunks -> gdpr_silver_enriched_chunks -> gdpr_gold_index_ready
+-> Vector Search sync -> gdpr_vector_index -> RAG retrieval
 ```
 
 ## Planned Work
@@ -44,10 +44,11 @@ Active assets remain:
 
 | Asset | Role |
 |---|---|
-| `team6_panos` | Main chunk table. |
-| `team6_panos_index_ready` | Index-ready source table. |
-| `team6_panos_index` | Delta Sync Vector Search index. |
-| `team6_panos_vs` | Retrieval layer. |
+| `gdpr_bronze_chunks` | Bronze chunk table. |
+| `gdpr_silver_enriched_chunks` | Silver enriched chunk table. |
+| `gdpr_gold_index_ready` | Gold index-ready source table. |
+| `gdpr_vector_index` | Delta Sync Vector Search index. |
+| `gdpr_rag_query_logs` | RAG query/audit log table. |
 
 ## Success Criteria
 

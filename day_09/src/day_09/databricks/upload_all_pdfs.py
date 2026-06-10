@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from day_09.config import DATA_DIR, DELTA_CATALOG, DELTA_SCHEMA
+from day_09.config import DATA_DIR, RAW_PDF_VOLUME_DIR
 from day_09.databricks.volume_uploader import upload_to_volume
 
-VOLUME_DIR = f"/Volumes/{DELTA_CATALOG}/{DELTA_SCHEMA}/volume/pdfs"
+VOLUME_DIR = RAW_PDF_VOLUME_DIR
 
 SUPPORTED = {".pdf", ".csv", ".docx", ".txt"}
 

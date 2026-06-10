@@ -175,7 +175,7 @@ class RAGPipeline:
           3. Trigger the bundle job (spark_ingester) via CLI or SDK
 
         Note: step 3 is run separately with:
-            databricks bundle run ingest_chunks
+            databricks bundle run ingest_gdpr_chunks
         """
         from day_09.databricks.data_fetcher import fetch_file
         from day_09.databricks.volume_uploader import upload_to_volume
@@ -189,7 +189,7 @@ class RAGPipeline:
 
         print(
             "File uploaded. Run the Databricks bundle job to ingest:\n"
-            "  databricks bundle run ingest_chunks"
+            "  databricks bundle run ingest_gdpr_chunks"
         )
 
     def ask_databricks(self, question: str) -> dict:

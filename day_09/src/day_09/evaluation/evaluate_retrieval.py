@@ -2,8 +2,9 @@ import csv
 
 from databricks.sdk import WorkspaceClient
 
+from day_09.config import VECTOR_SEARCH_INDEX
 
-INDEX_NAME = "accenture2026dbcks.team6.team6_panos_index"
+INDEX_NAME = VECTOR_SEARCH_INDEX
 
 
 def evaluate():
