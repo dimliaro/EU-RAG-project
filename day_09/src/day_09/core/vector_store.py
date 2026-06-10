@@ -140,8 +140,16 @@ class AISearchVectorStore:
             print(f"Deleted index '{index_name}'.")
 
     def count(self) -> int:
-        results = self.client.search("*", top=0, include_total_count=True)
-        return results.get_count() or 0
+        # include_total_count can return None during index propagation; treat as non-zero
+        # to avoid triggering a full re-ingestion on a transient Azure hiccup.
+        results = self.client.search("*", top=1, include_total_count=True)
+        n = results.get_count()
+        if n is not None:
+            return n
+        # Fallback: if count API is unreliable, check for at least one document
+        for _ in results:
+            return 1
+        return 0
 
     def add_chunks(self, chunks: list[dict], embeddings: list[list[float]]):
         from day_09.config import AI_SEARCH_UPLOAD_BATCH_SIZE

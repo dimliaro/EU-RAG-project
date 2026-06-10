@@ -33,7 +33,7 @@ COLLECTION_NAME      = "pdf_rag_collection"  # kept for reference; no longer use
 
 CHUNK_SIZE        = 500
 CHUNK_OVERLAP     = 80
-TOP_K             = 5
+TOP_K             = 10
 MAX_ARTICLE_CHARS = int(os.getenv("MAX_ARTICLE_CHARS", "3000"))
 
 # ── Databricks — Unity Catalog ────────────────────────────────────────────────

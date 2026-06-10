@@ -164,7 +164,10 @@ async def lifespan(app: FastAPI):
         AI_SEARCH_ENDPOINT, AI_SEARCH_API_KEY, AI_SEARCH_INDEX_NAME,
         dimensions=AZURE_OPENAI_EMBEDDING_DIMENSION,
     )
-    if vector_store.count() == 0:
+    skip_ingestion = os.getenv("SKIP_INGESTION", "false").lower() == "true"
+    if skip_ingestion:
+        print(f"SKIP_INGESTION=true — skipping ingestion, index '{AI_SEARCH_INDEX_NAME}' assumed populated.")
+    elif vector_store.count() == 0:
         print("Index is empty — ingesting local data...")
         _ingest_local_data_dir()
     else:
