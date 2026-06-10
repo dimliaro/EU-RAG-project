@@ -55,20 +55,38 @@ def main() -> None:
         f"""
         CREATE TABLE IF NOT EXISTS {DELTA_BRONZE_TABLE_FULL_NAME} (
             chunk_id STRING NOT NULL,
+            document_id STRING NOT NULL,
             source_file STRING NOT NULL,
+            source_path STRING NOT NULL,
             page_number INT,
             chunk_index INT,
-            content STRING NOT NULL
+            content STRING NOT NULL,
+            doc_kind STRING,
+            structure_type STRING,
+            number INT,
+            chapter STRING,
+            title STRING,
+            regulation STRING,
+            ingestion_timestamp TIMESTAMP NOT NULL
         )
         USING DELTA
         """,
         f"""
         CREATE TABLE IF NOT EXISTS {DELTA_SILVER_TABLE_FULL_NAME} (
             chunk_id STRING NOT NULL,
+            document_id STRING NOT NULL,
             source_file STRING NOT NULL,
+            source_path STRING NOT NULL,
             page_number INT,
             chunk_index INT,
             content STRING NOT NULL,
+            doc_kind STRING,
+            structure_type STRING,
+            number INT,
+            chapter STRING,
+            title STRING,
+            regulation STRING,
+            ingestion_timestamp TIMESTAMP NOT NULL,
             embedding ARRAY<FLOAT>
         )
         USING DELTA
@@ -80,7 +98,15 @@ def main() -> None:
             content STRING NOT NULL,
             page_number DOUBLE,
             source_file STRING NOT NULL,
+            source_path STRING NOT NULL,
             chunk_index BIGINT NOT NULL,
+            doc_kind STRING,
+            structure_type STRING,
+            number INT,
+            chapter STRING,
+            title STRING,
+            regulation STRING,
+            ingestion_timestamp TIMESTAMP NOT NULL,
             id STRING NOT NULL
         )
         USING DELTA

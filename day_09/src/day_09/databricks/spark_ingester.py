@@ -18,6 +18,7 @@ import argparse
 import glob
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Databricks runs spark_python_task via exec(), so __file__ is not set.
@@ -29,7 +30,15 @@ for _src in glob.glob("/Workspace/Users/*/.bundle/gdpr-rag-pipeline/*/files/src"
         break
 
 from databricks.sdk import WorkspaceClient
-from pyspark.sql.types import DoubleType, IntegerType, LongType, StringType, StructField, StructType
+from pyspark.sql.types import (
+    DoubleType,
+    IntegerType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
 _path_candidates = []
 if "__file__" in globals():
@@ -59,21 +68,38 @@ from day_09.core.smart_chunker import route_and_chunk
 CHUNKS_SCHEMA = StructType(
     [
         StructField("chunk_id", StringType(), nullable=False),
+        StructField("document_id", StringType(), nullable=False),
         StructField("source_file", StringType(), nullable=False),
+        StructField("source_path", StringType(), nullable=False),
         StructField("page_number", IntegerType(), nullable=False),
         StructField("chunk_index", IntegerType(), nullable=False),
         StructField("content", StringType(), nullable=False),
+        StructField("doc_kind", StringType(), nullable=True),
+        StructField("structure_type", StringType(), nullable=True),
+        StructField("number", IntegerType(), nullable=True),
+        StructField("chapter", StringType(), nullable=True),
+        StructField("title", StringType(), nullable=True),
+        StructField("regulation", StringType(), nullable=True),
+        StructField("ingestion_timestamp", TimestampType(), nullable=False),
     ]
 )
 
 INDEX_READY_SCHEMA = StructType(
     [
+        StructField("chunk_id", StringType(), nullable=False),
         StructField("document_id", StringType(), nullable=False),
-        StructField("chunk_id", LongType(), nullable=False),
         StructField("content", StringType(), nullable=False),
         StructField("page_number", DoubleType(), nullable=True),
         StructField("source_file", StringType(), nullable=False),
+        StructField("source_path", StringType(), nullable=False),
         StructField("chunk_index", LongType(), nullable=False),
+        StructField("doc_kind", StringType(), nullable=True),
+        StructField("structure_type", StringType(), nullable=True),
+        StructField("number", IntegerType(), nullable=True),
+        StructField("chapter", StringType(), nullable=True),
+        StructField("title", StringType(), nullable=True),
+        StructField("regulation", StringType(), nullable=True),
+        StructField("ingestion_timestamp", TimestampType(), nullable=False),
         StructField("id", StringType(), nullable=False),
     ]
 )
@@ -126,6 +152,7 @@ def main():
     print(f"Found {len(files)} files in Volume.")
 
     chunks = []
+    ingestion_timestamp = datetime.now(timezone.utc).replace(tzinfo=None)
     for file_path in files:
         document_id = Path(file_path).stem
         print(f"Reading file from Volume: {file_path}")
@@ -144,8 +171,11 @@ def main():
             file_chunks = create_chunks(pages=pages, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
 
         for chunk_index, chunk in enumerate(file_chunks):
+            chunk["document_id"] = document_id
             chunk["source_file"] = document_id
+            chunk["source_path"] = file_path
             chunk["chunk_index"] = chunk_index
+            chunk["ingestion_timestamp"] = ingestion_timestamp
 
         chunks.extend(file_chunks)
         print(f"Created {len(file_chunks)} chunks for {document_id}.")
@@ -155,10 +185,19 @@ def main():
     rows = [
         (
             c["chunk_id"],
+            c["document_id"],
             c["source_file"],
+            c["source_path"],
             int(c["page_number"]),
             int(c["chunk_index"]),
             c["content"],
+            c.get("doc_kind"),
+            c.get("structure_type"),
+            int(c["number"]) if c.get("number") is not None else None,
+            c.get("chapter"),
+            c.get("title"),
+            c.get("regulation"),
+            c["ingestion_timestamp"],
         )
         for c in chunks
     ]
@@ -177,12 +216,20 @@ def main():
 
     index_rows = [
         (
-            c["source_file"],
-            int(c["chunk_index"]),
+            c["chunk_id"],
+            c["document_id"],
             c["content"],
             float(c["page_number"]) if c["page_number"] is not None else None,
             c["source_file"],
+            c["source_path"],
             int(c["chunk_index"]),
+            c.get("doc_kind"),
+            c.get("structure_type"),
+            int(c["number"]) if c.get("number") is not None else None,
+            c.get("chapter"),
+            c.get("title"),
+            c.get("regulation"),
+            c["ingestion_timestamp"],
             f"{c['source_file']}_{int(c['chunk_index'])}",
         )
         for c in chunks
