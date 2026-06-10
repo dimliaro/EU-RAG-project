@@ -36,6 +36,21 @@ Official source -> Document fetcher -> Databricks Volume -> Smart chunking
 6. Trigger or document the Vector Search sync step after ingestion completes.
 7. Run retrieval evaluation after each ingestion update.
 
+## Corpus Onboarding
+
+Use `config/pdf_manifest.yaml` as the explicit list of regulatory PDFs intended
+for corpus onboarding. The evaluation file `data/evaluation_questions.csv` is
+not corpus content; keep it for retrieval and answer-quality evaluation.
+
+Bulk PDF upload should be run in dry-run mode first:
+
+```bash
+uv run python -m day_09.databricks.upload_all_pdfs --dry-run
+```
+
+Only `.pdf` files should be uploaded to the PDF Volume. CSV files are excluded
+from the PDF upload workflow.
+
 ## Constraints
 
 Do not rename active Databricks assets during this branch.
