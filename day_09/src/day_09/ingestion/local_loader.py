@@ -18,15 +18,13 @@ from docx import Document
 
 
 def _extract_pdf(file_path: str) -> list[dict]:
-    try:
-        doc = fitz.open(file_path)
-    except FileNotFoundError:
-        if not file_path.startswith("/Volumes/"):
-            raise
+    if file_path.startswith("/Volumes/"):
         from databricks.sdk import WorkspaceClient
 
         data = WorkspaceClient().files.download(file_path).contents.read()
         doc = fitz.open(stream=data, filetype="pdf")
+    else:
+        doc = fitz.open(file_path)
 
     chunks = []
     for page_number, page in enumerate(doc, start=1):
