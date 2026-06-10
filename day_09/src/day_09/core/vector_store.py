@@ -144,12 +144,21 @@ class AISearchVectorStore:
         return results.get_count() or 0
 
     def add_chunks(self, chunks: list[dict], embeddings: list[list[float]]):
+        from day_09.config import AI_SEARCH_UPLOAD_BATCH_SIZE
+
         print("Uploading metadata-aware smart chunks to Azure AI Search")
         documents = [
             self._to_search_document(chunk, embedding)
             for chunk, embedding in zip(chunks, embeddings)
         ]
-        self.client.upload_documents(documents=documents)
+        batch_size = max(1, AI_SEARCH_UPLOAD_BATCH_SIZE)
+        total_batches = (len(documents) + batch_size - 1) // batch_size
+
+        for batch_number, start in enumerate(range(0, len(documents), batch_size), start=1):
+            batch = documents[start : start + batch_size]
+            self.client.upload_documents(documents=batch)
+            print(f"Uploaded batch {batch_number}/{total_batches} ({len(batch)} documents)")
+
         print(f"Uploaded {len(documents)} chunks to Azure AI Search.")
 
     def _to_search_document(self, chunk, embedding: list[float]) -> dict:
