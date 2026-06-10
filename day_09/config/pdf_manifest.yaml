@@ -1,0 +1,76 @@
+# Regulatory PDF corpus manifest.
+# `evaluation_questions.csv` is intentionally excluded; it is the evaluation dataset.
+# Unknown metadata is stored as null until verified from the official source.
+
+documents:
+  - document_id: 32016R0679_EN
+    regulation: null
+    authority: null
+    document_type: null
+    source_url: null
+    celex_id: "32016R0679"
+    local_path: day_09/data/32016R0679_EN.pdf
+    volume_path: /Volumes/accenture2026dbcks/team6/volume/pdfs/32016R0679_EN.pdf
+
+  - document_id: 32022R2554_EN
+    regulation: null
+    authority: null
+    document_type: null
+    source_url: null
+    celex_id: "32022R2554"
+    local_path: day_09/data/32022R2554_EN.pdf
+    volume_path: /Volumes/accenture2026dbcks/team6/volume/pdfs/32022R2554_EN.pdf
+
+  - document_id: CELEX_32014L0065_EN_TXT
+    regulation: null
+    authority: null
+    document_type: null
+    source_url: null
+    celex_id: "32014L0065"
+    local_path: day_09/data/CELEX_32014L0065_EN_TXT.pdf
+    volume_path: /Volumes/accenture2026dbcks/team6/volume/pdfs/CELEX_32014L0065_EN_TXT.pdf
+
+  - document_id: CELEX_32015L0849_EN_TXT
+    regulation: null
+    authority: null
+    document_type: null
+    source_url: null
+    celex_id: "32015L0849"
+    local_path: day_09/data/CELEX_32015L0849_EN_TXT.pdf
+    volume_path: /Volumes/accenture2026dbcks/team6/volume/pdfs/CELEX_32015L0849_EN_TXT.pdf
+
+  - document_id: OJ_L_202401689_EN_TXT
+    regulation: null
+    authority: null
+    document_type: null
+    source_url: null
+    celex_id: null
+    local_path: day_09/data/OJ_L_202401689_EN_TXT.pdf
+    volume_path: /Volumes/accenture2026dbcks/team6/volume/pdfs/OJ_L_202401689_EN_TXT.pdf
+
+  - document_id: EBA_Outsourcing_Guidelines
+    regulation: null
+    authority: null
+    document_type: null
+    source_url: null
+    celex_id: null
+    local_path: day_09/data/EBA_Outsourcing_Guidelines.pdf
+    volume_path: /Volumes/accenture2026dbcks/team6/volume/pdfs/EBA_Outsourcing_Guidelines.pdf
+
+  - document_id: EBA_ICT_Security_Risk_Management
+    regulation: null
+    authority: null
+    document_type: null
+    source_url: null
+    celex_id: null
+    local_path: day_09/data/EBA_ICT_Security_Risk_Management.pdf
+    volume_path: /Volumes/accenture2026dbcks/team6/volume/pdfs/EBA_ICT_Security_Risk_Management.pdf
+
+  - document_id: ECB_Climate_Risk_Guide
+    regulation: null
+    authority: null
+    document_type: null
+    source_url: null
+    celex_id: null
+    local_path: day_09/data/ECB_Climate_Risk_Guide.pdf
+    volume_path: /Volumes/accenture2026dbcks/team6/volume/pdfs/ECB_Climate_Risk_Guide.pdf
