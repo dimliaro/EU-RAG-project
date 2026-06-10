@@ -2,6 +2,7 @@ import argparse
 from collections import Counter
 from pathlib import Path
 
+import requests
 from databricks.sdk.errors import AlreadyExists, ResourceAlreadyExists
 
 from day_09.config import DATA_DIR, RAW_PDF_VOLUME_DIR
@@ -58,16 +59,28 @@ def main():
         print("Dry run only. No files uploaded.")
         return
 
+    uploaded = 0
+    skipped = 0
+    failed = 0
+
     for path in files:
         volume_path = f"{VOLUME_DIR}/{path.name}"
         try:
             upload_to_volume(path, volume_path, overwrite=args.overwrite)
+            uploaded += 1
         except (AlreadyExists, ResourceAlreadyExists):
             if args.overwrite:
                 raise
             print(f"SKIPPED existing: {path.name}")
+            skipped += 1
+        except (TimeoutError, requests.exceptions.ConnectionError, ConnectionResetError):
+            print(f"FAILED upload: {path.name}")
+            failed += 1
 
     print("Upload complete.")
+    print(f"Uploaded: {uploaded}")
+    print(f"Skipped existing: {skipped}")
+    print(f"Failed: {failed}")
 
 
 if __name__ == "__main__":
