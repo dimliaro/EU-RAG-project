@@ -13,6 +13,7 @@ def main() -> None:
     parser.add_argument("--celex", nargs="+")
     parser.add_argument("--local-file")
     parser.add_argument("--volume-dir")
+    parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--manifest", default="data/auto_ingestion_manifest.json")
     args = parser.parse_args()
@@ -22,7 +23,10 @@ def main() -> None:
             parser.error("--volume-dir is required when --local-file is provided.")
 
         writer = VolumeWriter(target_volume_dir=args.volume_dir)
-        volume_path = writer.write_file(local_path=args.local_file)
+        volume_path = writer.write_file(
+            local_path=args.local_file,
+            overwrite=args.overwrite,
+        )
         print(f"Uploaded: {args.local_file}")
         print(f"Volume path: {volume_path}")
         return
