@@ -20,7 +20,7 @@ A Retrieval-Augmented Generation (RAG) pipeline for querying legal documents (PD
 ### Ingestion (run once per document set)
 
 ```
-/Volumes/accenture2026dbcks/team6/raw_documents/pdfs/   ← Databricks Volume
+/Volumes/accenture2026dbcks/team6/volume/pdfs/   ← Databricks Volume
          │
          ▼
 all_type_chunker.chunk_file()    ← reads bytes from Volume, splits into chunks
@@ -364,7 +364,7 @@ DATABRICKS_TOKEN=dapiXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 DELTA_CATALOG=accenture2026dbcks
 DELTA_SCHEMA=team6
 DELTA_BRONZE_TABLE=gdpr_bronze_chunks
-VOLUME_FILE_PATH=/Volumes/accenture2026dbcks/team6/raw_documents/pdfs/32016R0679_EN.pdf
+VOLUME_FILE_PATH=/Volumes/accenture2026dbcks/team6/volume/pdfs/32016R0679_EN.pdf
 ```
 
 ---

@@ -64,14 +64,14 @@ EUR-Lex.
 ```bash
 uv run python -m day_09.ingestion.auto.cli \
   --local-file demo_documents/32016R0679_GDPR.pdf \
-  --volume-dir /Volumes/accenture2026dbcks/team6/raw_documents/pdfs
+  --volume-dir /Volumes/accenture2026dbcks/team6/volume/pdfs
 ```
 
 Expected output shape:
 
 ```text
 Uploaded: demo_documents/32016R0679_GDPR.pdf
-Volume path: /Volumes/accenture2026dbcks/team6/raw_documents/pdfs/32016R0679_GDPR.pdf
+Volume path: /Volumes/accenture2026dbcks/team6/volume/pdfs/32016R0679_GDPR.pdf
 ```
 
 ### Online CELEX Download And Upload
@@ -84,7 +84,7 @@ from day_09.ingestion.auto.pipeline import AutoIngestionPipeline
 pipeline = AutoIngestionPipeline()
 result = pipeline.ingest_celex_pdf(
     celex_id="32016R0679",
-    target_volume_dir="/Volumes/accenture2026dbcks/team6/raw_documents/pdfs",
+    target_volume_dir="/Volumes/accenture2026dbcks/team6/volume/pdfs",
     overwrite=False,
 )
 

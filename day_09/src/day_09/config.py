@@ -38,7 +38,7 @@ MAX_ARTICLE_CHARS = int(os.getenv("MAX_ARTICLE_CHARS", "3000"))
 # ── Databricks — Unity Catalog ────────────────────────────────────────────────
 DELTA_CATALOG = os.getenv("DELTA_CATALOG", "accenture2026dbcks")
 DELTA_SCHEMA  = os.getenv("DELTA_SCHEMA",  "team6")
-RAW_DOCUMENTS_VOLUME = os.getenv("RAW_DOCUMENTS_VOLUME", "raw_documents")
+RAW_DOCUMENTS_VOLUME = os.getenv("RAW_DOCUMENTS_VOLUME", "volume")
 RAW_PDF_VOLUME_DIR = os.getenv(
     "RAW_PDF_VOLUME_DIR",
     f"/Volumes/{DELTA_CATALOG}/{DELTA_SCHEMA}/{RAW_DOCUMENTS_VOLUME}/pdfs",

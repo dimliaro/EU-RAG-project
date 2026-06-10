@@ -13,7 +13,7 @@ Raw PDF Volume -> Bronze -> Silver -> Gold -> Vector Search Index -> Retrieval
 
 | Physical name | Logical layer | Purpose |
 |---|---|---|
-| `/Volumes/accenture2026dbcks/team6/raw_documents/pdfs` | Raw PDF Volume | Stores official source PDFs before Spark ingestion. |
+| `/Volumes/accenture2026dbcks/team6/volume/pdfs` | Raw PDF Volume | Stores official source PDFs before Spark ingestion. |
 | `accenture2026dbcks.team6.gdpr_bronze_chunks` | Bronze table | Stores ingested and smart-chunked document content. |
 | `accenture2026dbcks.team6.gdpr_silver_enriched_chunks` | Silver table | Stores enriched chunks, including Databricks embedding vectors. |
 | `accenture2026dbcks.team6.gdpr_gold_index_ready` | Gold table | Stores records shaped for Vector Search indexing. |
