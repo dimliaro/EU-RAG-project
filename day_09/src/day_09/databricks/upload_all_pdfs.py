@@ -2,6 +2,8 @@ import argparse
 from collections import Counter
 from pathlib import Path
 
+from databricks.sdk.errors import AlreadyExists, ResourceAlreadyExists
+
 from day_09.config import DATA_DIR, RAW_PDF_VOLUME_DIR
 from day_09.databricks.volume_uploader import upload_to_volume
 
@@ -58,7 +60,12 @@ def main():
 
     for path in files:
         volume_path = f"{VOLUME_DIR}/{path.name}"
-        upload_to_volume(path, volume_path, overwrite=args.overwrite)
+        try:
+            upload_to_volume(path, volume_path, overwrite=args.overwrite)
+        except (AlreadyExists, ResourceAlreadyExists):
+            if args.overwrite:
+                raise
+            print(f"SKIPPED existing: {path.name}")
 
     print("Upload complete.")
 
